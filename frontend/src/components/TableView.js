@@ -265,7 +265,7 @@ export const TableView = ({ tasks, groups, statuses, onTaskClick, onUpdateTask, 
 
               {/* Ungrouped Tasks */}
               {ungroupedTasks.length > 0 && (
-                <>
+                <React.Fragment key="ungrouped-section">
                   {groups.length > 0 && (
                     <tr className="bg-slate-50">
                       <td colSpan="7" className="p-3">
@@ -281,7 +281,7 @@ export const TableView = ({ tasks, groups, statuses, onTaskClick, onUpdateTask, 
                     </tr>
                   )}
                   {ungroupedTasks.map(renderTaskRow)}
-                </>
+                </React.Fragment>
               )}
 
               {tasks.length === 0 && (
