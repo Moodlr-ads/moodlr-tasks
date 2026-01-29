@@ -5,7 +5,7 @@ import prisma from "@/lib/db";
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -13,6 +13,7 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
     const data = await req.json();
     const updateData: any = { ...data };
 
@@ -20,7 +21,7 @@ export async function PUT(
     if (data.dueDate) updateData.dueDate = new Date(data.dueDate);
 
     const task = await prisma.task.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
     });
 
@@ -36,7 +37,7 @@ export async function PUT(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -44,8 +45,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
     await prisma.task.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ message: "Task deleted" });
