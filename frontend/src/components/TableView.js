@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { StatusPill } from './StatusPill';
 import { PriorityBadge } from './PriorityBadge';
 import { GripVertical, MoreHorizontal, Trash2, Calendar } from 'lucide-react';
