@@ -245,7 +245,7 @@ export const TableView = ({ tasks, groups, statuses, onTaskClick, onUpdateTask, 
                 if (groupTasks.length === 0) return null;
 
                 return (
-                  <>
+                  <React.Fragment key={`group-section-${group.id}`}>
                     <tr key={`group-${group.id}`} className="bg-slate-50">
                       <td colSpan="7" className="p-3">
                         <div className="flex items-center gap-2">
@@ -259,7 +259,7 @@ export const TableView = ({ tasks, groups, statuses, onTaskClick, onUpdateTask, 
                       </td>
                     </tr>
                     {groupTasks.map(renderTaskRow)}
-                  </>
+                  </React.Fragment>
                 );
               })}
 
