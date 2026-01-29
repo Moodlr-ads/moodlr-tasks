@@ -5,7 +5,6 @@ import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
@@ -354,7 +353,7 @@ export default function DashboardPage() {
           <h1 className="text-lg font-bold text-slate-900">TaskFlow Pro</h1>
         </div>
 
-        <ScrollArea className="flex-1 p-3">
+        <div className="flex-1 overflow-y-auto p-3">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Workspaces
@@ -463,7 +462,7 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
-        </ScrollArea>
+        </div>
 
         <div className="p-3 border-t border-slate-200">
           <Button
