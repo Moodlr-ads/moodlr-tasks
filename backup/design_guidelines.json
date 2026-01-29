@@ -1,0 +1,115 @@
+{
+  "identity": {
+    "name": "TaskFlow Pro",
+    "tone": "Professional, Efficient, Premium, Reliable",
+    "archetype": "The Performance Pro (Refined)",
+    "design_philosophy": "Density with Clarity. Every pixel serves data, but breathing room exists where focus is needed."
+  },
+  "typography": {
+    "font_family": {
+      "headings": "Plus Jakarta Sans, sans-serif",
+      "body": "Public Sans, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "google_fonts_url": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Public+Sans:wght@400;500;600&display=swap",
+    "usage": {
+      "h1": "text-3xl font-bold tracking-tight text-slate-900",
+      "h2": "text-2xl font-semibold tracking-tight text-slate-900",
+      "h3": "text-xl font-semibold tracking-tight text-slate-900",
+      "body_large": "text-base font-normal leading-relaxed text-slate-600",
+      "body_default": "text-sm font-normal leading-relaxed text-slate-600",
+      "caption": "text-xs font-medium text-slate-500 uppercase tracking-wider",
+      "table_header": "text-xs font-semibold text-slate-500 uppercase tracking-wider",
+      "table_cell": "text-sm font-medium text-slate-700"
+    }
+  },
+  "colors": {
+    "palette": {
+      "primary": {
+        "DEFAULT": "hsl(243, 75%, 59%)", 
+        "foreground": "hsl(0, 0%, 100%)",
+        "hover": "hsl(243, 75%, 50%)"
+      },
+      "background": "hsl(0, 0%, 100%)",
+      "surface": "hsl(210, 40%, 98%)",
+      "border": "hsl(214, 32%, 91%)",
+      "muted": "hsl(210, 40%, 96.1%)",
+      "muted_foreground": "hsl(215, 16%, 47%)"
+    },
+    "semantic": {
+      "status_todo": "bg-slate-100 text-slate-700 border-slate-200",
+      "status_in_progress": "bg-blue-50 text-blue-700 border-blue-200",
+      "status_review": "bg-purple-50 text-purple-700 border-purple-200",
+      "status_done": "bg-emerald-50 text-emerald-700 border-emerald-200",
+      "priority_low": "text-slate-500",
+      "priority_medium": "text-blue-500",
+      "priority_high": "text-orange-500",
+      "priority_critical": "text-red-600"
+    }
+  },
+  "layout": {
+    "spacing": {
+      "page_padding": "p-6 md:p-8",
+      "card_padding": "p-6",
+      "section_gap": "gap-8"
+    },
+    "structure": {
+      "sidebar_width": "w-64",
+      "header_height": "h-14",
+      "radius": "rounded-lg"
+    },
+    "z_index": {
+      "header": "z-40",
+      "sidebar": "z-30",
+      "modal": "z-50",
+      "dropdown": "z-50"
+    }
+  },
+  "components": {
+    "buttons": {
+      "default": "h-9 px-4 py-2 rounded-md font-medium transition-all active:scale-95",
+      "primary": "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm",
+      "secondary": "bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 shadow-sm",
+      "ghost": "hover:bg-slate-100 text-slate-600 hover:text-slate-900",
+      "icon": "h-8 w-8 p-0 rounded-md flex items-center justify-center"
+    },
+    "inputs": {
+      "default": "h-9 rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
+    },
+    "cards": {
+      "default": "rounded-lg border border-slate-200 bg-white text-slate-950 shadow-sm"
+    },
+    "table": {
+      "wrapper": "w-full overflow-auto rounded-md border border-slate-200 bg-white",
+      "header_row": "border-b border-slate-200 bg-slate-50/50 hover:bg-slate-50/50",
+      "row": "border-b border-slate-100 transition-colors hover:bg-slate-50/50 data-[state=selected]:bg-slate-50",
+      "cell": "p-3 align-middle [&:has([role=checkbox])]:pr-0"
+    }
+  },
+  "assets": {
+    "avatars": [
+      "https://images.unsplash.com/photo-1576558656222-ba66febe3dec?crop=entropy&cs=srgb&fm=jpg&w=100&q=80",
+      "https://images.unsplash.com/photo-1562228802-4b1052d0f845?crop=entropy&cs=srgb&fm=jpg&w=100&q=80",
+      "https://images.unsplash.com/photo-1655249481446-25d575f1c054?crop=entropy&cs=srgb&fm=jpg&w=100&q=80",
+      "https://images.unsplash.com/photo-1680104073282-8462cdf70b6a?crop=entropy&cs=srgb&fm=jpg&w=100&q=80"
+    ],
+    "logos": [
+      "https://images.unsplash.com/photo-1746047420047-03fc7a9b9226?crop=entropy&cs=srgb&fm=jpg&w=200&q=80",
+      "https://images.unsplash.com/photo-1761044591996-7a05341a3e12?crop=entropy&cs=srgb&fm=jpg&w=200&q=80"
+    ]
+  },
+  "universal_guidelines": [
+    "DO NOT use gradients for backgrounds. Use solid, clean colors.",
+    "DO NOT center text in main content areas. Left align is standard for readability.",
+    "Use 'Inter' or 'Public Sans' for dense data tables.",
+    "Use 'Plus Jakarta Sans' for headings to give a modern SaaS feel.",
+    "Table View is the HERO. It must feel like a spreadsheet but look like a UI.",
+    "Use a 'Sheet' (Side Panel) for Task Details, not a center modal.",
+    "Add 'data-testid' to all interactive elements.",
+    "Use 'sonner' for toast notifications.",
+    "Use 'lucide-react' for icons.",
+    "Ensure all inputs have a clear focus state (ring-1 ring-primary).",
+    "Use 'framer-motion' for subtle layout transitions (e.g., switching between Board and Table view)."
+  ],
+  "instructions_to_main_agent": "You are building a premium Task Management System. Focus on the 'Table View' first. It needs to be rock solid. Use Shadcn UI components but override the styling to match the 'Professional' aesthetic defined here. The sidebar should be collapsible. The task details should open in a side sheet. Use the provided image URLs for avatars."
+}
