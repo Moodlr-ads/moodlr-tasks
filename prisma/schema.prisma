@@ -1,0 +1,113 @@
+// Prisma schema for TaskFlow Pro
+// PostgreSQL database (easily portable to MySQL)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String      @id @default(uuid())
+  email        String      @unique
+  name         String
+  passwordHash String      @map("password_hash")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  workspaces   Workspace[]
+
+  @@map("users")
+}
+
+model Workspace {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  ownerId     String   @map("owner_id")
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  color       String   @default("#6366f1")
+  icon        String   @default("📁")
+  createdAt   DateTime @default(now()) @map("created_at")
+  boards      Board[]
+
+  @@index([ownerId])
+  @@map("workspaces")
+}
+
+model Board {
+  id          String    @id @default(uuid())
+  workspaceId String    @map("workspace_id")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  color       String    @default("#6366f1")
+  icon        String    @default("📋")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  groups      Group[]
+  statuses    Status[]
+  tasks       Task[]
+
+  @@index([workspaceId])
+  @@map("boards")
+}
+
+model Group {
+  id        String   @id @default(uuid())
+  boardId   String   @map("board_id")
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  name      String
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  tasks     Task[]
+
+  @@index([boardId, order])
+  @@map("groups")
+}
+
+model Status {
+  id        String   @id @default(uuid())
+  boardId   String   @map("board_id")
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  name      String
+  color     String
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  tasks     Task[]
+
+  @@index([boardId, order])
+  @@map("statuses")
+}
+
+enum Priority {
+  low
+  medium
+  high
+  critical
+}
+
+model Task {
+  id          String    @id @default(uuid())
+  boardId     String    @map("board_id")
+  board       Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  groupId     String?   @map("group_id")
+  group       Group?    @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  title       String
+  description String?
+  statusId    String?   @map("status_id")
+  status      Status?   @relation(fields: [statusId], references: [id], onDelete: SetNull)
+  priority    Priority  @default(medium)
+  startDate   DateTime? @map("start_date")
+  dueDate     DateTime? @map("due_date")
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([boardId])
+  @@index([groupId])
+  @@index([statusId])
+  @@index([dueDate])
+  @@index([priority])
+  @@map("tasks")
+}
