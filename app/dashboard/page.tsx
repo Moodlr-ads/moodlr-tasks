@@ -721,7 +721,8 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="ml-auto">
+              <div className="ml-auto flex items-center gap-3">
+                <ThemeToggle />
                 <Dialog open={showNewTask} onOpenChange={setShowNewTask}>
                   <DialogTrigger asChild>
                     <Button
