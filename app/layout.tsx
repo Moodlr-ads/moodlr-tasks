@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "TaskFlow Pro",
+  title: "Moodlr Task",
   description: "Professional task management for teams",
 };
 
