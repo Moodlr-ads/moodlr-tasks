@@ -68,7 +68,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8 flex flex-col items-center">
           <Image
@@ -81,14 +81,14 @@ export default function LoginPage() {
           />
         </div>
 
-        <div className="bg-slate-900 rounded-lg shadow-xl border border-slate-800 p-8">
-          <div className="flex gap-2 mb-6 bg-slate-800 p-1 rounded-md">
+        <div className="bg-card rounded-lg shadow-xl border border-border p-8">
+          <div className="flex gap-2 mb-6 bg-muted p-1 rounded-md">
             <button
               onClick={() => setIsLogin(true)}
               className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
                 isLogin
-                  ? "bg-slate-900 text-slate-50 shadow-sm"
-                  : "text-slate-300 hover:text-slate-100"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               Log In
@@ -97,8 +97,8 @@ export default function LoginPage() {
               onClick={() => setIsLogin(false)}
               className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
                 !isLogin
-                  ? "bg-slate-900 text-slate-50 shadow-sm"
-                  : "text-slate-300 hover:text-slate-100"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               Sign Up
@@ -108,7 +108,7 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div>
-                <Label htmlFor="name" className="text-sm font-medium text-slate-200">
+              <Label htmlFor="name" className="text-sm font-medium text-foreground">
                   Full Name
                 </Label>
                 <Input
@@ -124,7 +124,7 @@ export default function LoginPage() {
             )}
 
             <div>
-              <Label htmlFor="email" className="text-sm font-medium text-slate-200">
+              <Label htmlFor="email" className="text-sm font-medium text-foreground">
                 Email
               </Label>
               <Input
@@ -139,7 +139,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <Label htmlFor="password" className="text-sm font-medium text-slate-200">
+              <Label htmlFor="password" className="text-sm font-medium text-foreground">
                 Password
               </Label>
               <Input
