@@ -458,14 +458,14 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="h-screen flex bg-slate-50">
+    <div className="h-screen flex bg-slate-950 text-slate-50">
       {/* Sidebar */}
       <aside
         className={`${
           sidebarOpen ? "w-64" : "w-0 overflow-hidden"
-        } bg-white border-r border-slate-200 flex flex-col transition-all duration-200`}
+        } bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-200`}
       >
-        <div className="p-4 border-b border-slate-200">
+        <div className="p-4 border-b border-slate-800">
           <div className="flex items-center gap-2">
             <Image
               src="/moodlr-icon.png"
@@ -487,7 +487,7 @@ export default function DashboardPage() {
                 setEditHeadingValue(workspaceHeading);
                 setEditHeadingOpen(true);
               }}
-              className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1 hover:text-slate-700"
+              className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1 hover:text-slate-100"
             >
               {workspaceHeading}
             </button>
@@ -498,14 +498,14 @@ export default function DashboardPage() {
                   setEditHeadingValue(workspaceHeading);
                   setEditHeadingOpen(true);
                 }}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-200"
                 aria-label="Rename workspaces heading"
               >
                 ✎
               </button>
               <Dialog open={showNewWorkspace} onOpenChange={setShowNewWorkspace}>
                 <DialogTrigger asChild>
-                  <button className="text-slate-400 hover:text-slate-600">
+                  <button className="text-slate-400 hover:text-slate-200">
                     <Plus className="h-4 w-4" />
                   </button>
                 </DialogTrigger>
@@ -676,11 +676,11 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="p-3 border-t border-slate-200">
+        <div className="p-3 border-t border-slate-800">
           <Button
             variant="ghost"
             size="sm"
-            className="w-full justify-start text-slate-500 hover:text-red-600"
+            className="w-full justify-start text-slate-300 hover:text-red-500"
             onClick={() => signOut({ callbackUrl: "/login" })}
           >
             <LogOut className="h-4 w-4 mr-2" />
@@ -692,10 +692,10 @@ export default function DashboardPage() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="h-14 bg-white border-b border-slate-200 flex items-center px-4 gap-3">
+        <header className="h-14 bg-slate-900 border-b border-slate-800 flex items-center px-4 gap-3 text-slate-50">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-slate-400 hover:text-slate-600"
+            className="text-slate-400 hover:text-slate-200"
           >
             <LayoutDashboard className="h-5 w-5" />
           </button>
@@ -716,7 +716,7 @@ export default function DashboardPage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search tasks..."
-                    className="pl-9 h-8 text-sm"
+                    className="pl-9 h-8 text-sm bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-400"
                   />
                 </div>
               </div>
@@ -843,8 +843,8 @@ export default function DashboardPage() {
         {/* Board Content */}
         <div className="flex-1 overflow-auto p-4">
           {selectedBoard ? (
-            <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-              <div className="grid grid-cols-[2fr,1fr,1fr,1fr,120px] px-4 py-3 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500">
+            <div className="bg-slate-900 border border-slate-800 rounded-lg shadow-sm overflow-hidden">
+              <div className="grid grid-cols-[2fr,1fr,1fr,1fr,120px] px-4 py-3 bg-slate-800 border-b border-slate-700 text-xs font-semibold text-slate-300">
                 <span>Task</span>
                 <span>Status</span>
                 <span>Priority</span>
@@ -853,7 +853,7 @@ export default function DashboardPage() {
               </div>
 
               {filteredTasks.length === 0 ? (
-                <div className="py-12 text-center text-slate-500 text-sm">
+                <div className="py-12 text-center text-slate-400 text-sm">
                   No tasks found. Create one to get started.
                 </div>
               ) : (
@@ -869,11 +869,11 @@ export default function DashboardPage() {
                         className="grid grid-cols-[2fr,1fr,1fr,1fr,120px] px-4 py-3 items-center text-sm"
                       >
                         <div className="flex flex-col gap-1">
-                          <span className="font-medium text-slate-900">
+                          <span className="font-medium text-slate-50">
                             {task.title}
                           </span>
                           {task.description && (
-                            <span className="text-xs text-slate-500 line-clamp-2">
+                            <span className="text-xs text-slate-400 line-clamp-2">
                               {task.description}
                             </span>
                           )}
@@ -917,7 +917,7 @@ export default function DashboardPage() {
                           </span>
                         </div>
 
-                        <div className="text-slate-600 text-sm">
+                        <div className="text-slate-300 text-sm">
                           {group ? group.name : "—"}
                         </div>
 
