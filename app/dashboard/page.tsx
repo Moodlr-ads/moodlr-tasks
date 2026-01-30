@@ -1,11 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -14,33 +9,45 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
-import {
-  Plus,
-  LayoutDashboard,
-  FolderOpen,
-  LogOut,
-  Search,
-  Calendar,
-  Flag,
-  MoreHorizontal,
-  Trash2,
-  ChevronRight,
-  Loader2,
-} from "lucide-react";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import {
+  Calendar,
+  ChevronRight,
+  LayoutDashboard,
+  Loader2,
+  LogOut,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
+import { signOut } from "next-auth/react";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 // Types
 interface Workspace {
@@ -100,7 +107,9 @@ const priorityConfig: Record<string, { label: string; color: string }> = {
 export default function DashboardPage() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [boards, setBoards] = useState<Board[]>([]);
-  const [selectedWorkspace, setSelectedWorkspace] = useState<Workspace | null>(null);
+  const [selectedWorkspace, setSelectedWorkspace] = useState<Workspace | null>(
+    null,
+  );
   const [selectedBoard, setSelectedBoard] = useState<Board | null>(null);
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -113,14 +122,28 @@ export default function DashboardPage() {
   const [showNewWorkspace, setShowNewWorkspace] = useState(false);
   const [showNewBoard, setShowNewBoard] = useState(false);
   const [showNewTask, setShowNewTask] = useState(false);
+  const [editingWorkspace, setEditingWorkspace] = useState<Workspace | null>(
+    null,
+  );
+  const [pendingDelete, setPendingDelete] = useState<Workspace | null>(null);
+  const [editingBoard, setEditingBoard] = useState<Board | null>(null);
+  const [pendingBoardDelete, setPendingBoardDelete] = useState<Board | null>(
+    null,
+  );
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
   const [newWorkspaceDesc, setNewWorkspaceDesc] = useState("");
+  const [editWorkspaceName, setEditWorkspaceName] = useState("");
+  const [editWorkspaceDesc, setEditWorkspaceDesc] = useState("");
+  const [editBoardName, setEditBoardName] = useState("");
   const [newBoardName, setNewBoardName] = useState("");
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDesc, setNewTaskDesc] = useState("");
   const [newTaskPriority, setNewTaskPriority] = useState("medium");
   const [newTaskStatusId, setNewTaskStatusId] = useState("");
   const [newTaskGroupId, setNewTaskGroupId] = useState("");
+  const [workspaceHeading, setWorkspaceHeading] = useState("WORKSPACES");
+  const [editHeadingOpen, setEditHeadingOpen] = useState(false);
+  const [editHeadingValue, setEditHeadingValue] = useState(workspaceHeading);
 
   // Fetch workspaces
   const fetchWorkspaces = useCallback(async () => {
@@ -131,7 +154,9 @@ export default function DashboardPage() {
         setWorkspaces(data);
         if (data.length === 0) {
           // Seed demo data for new users
-          const seedRes = await fetch("/api/seed-demo-data", { method: "POST" });
+          const seedRes = await fetch("/api/seed-demo-data", {
+            method: "POST",
+          });
           if (seedRes.ok) {
             const res2 = await fetch("/api/workspaces");
             if (res2.ok) {
@@ -230,6 +255,101 @@ export default function DashboardPage() {
     }
   };
 
+  // Update workspace
+  const handleUpdateWorkspace = async () => {
+    if (!editingWorkspace || !editWorkspaceName.trim()) return;
+    try {
+      const res = await fetch(`/api/workspaces/${editingWorkspace.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editWorkspaceName,
+          description: editWorkspaceDesc || null,
+        }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setWorkspaces((prev) =>
+          prev.map((w) => (w.id === updated.id ? updated : w)),
+        );
+        if (selectedWorkspace?.id === updated.id) {
+          setSelectedWorkspace(updated);
+        }
+        setEditingWorkspace(null);
+        toast.success("Workspace updated");
+      }
+    } catch {
+      toast.error("Failed to update workspace");
+    }
+  };
+
+  // Delete workspace
+  const handleDeleteWorkspace = async (workspaceId: string) => {
+    try {
+      const res = await fetch(`/api/workspaces/${workspaceId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setWorkspaces((prev) => prev.filter((w) => w.id !== workspaceId));
+        if (selectedWorkspace?.id === workspaceId) {
+          setSelectedWorkspace(null);
+          setSelectedBoard(null);
+          setBoards([]);
+          setStatuses([]);
+          setGroups([]);
+          setTasks([]);
+        }
+        toast.success("Workspace deleted");
+      }
+    } catch {
+      toast.error("Failed to delete workspace");
+    }
+  };
+
+  // Update board
+  const handleUpdateBoard = async () => {
+    if (!editingBoard || !editBoardName.trim()) return;
+    try {
+      const res = await fetch(`/api/boards/${editingBoard.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editBoardName }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setBoards((prev) =>
+          prev.map((b) => (b.id === updated.id ? updated : b)),
+        );
+        if (selectedBoard?.id === updated.id) {
+          setSelectedBoard(updated);
+        }
+        setEditingBoard(null);
+        toast.success("Board updated");
+      }
+    } catch {
+      toast.error("Failed to update board");
+    }
+  };
+
+  // Delete board
+  const handleDeleteBoard = async (boardId: string) => {
+    try {
+      const res = await fetch(`/api/boards/${boardId}`, { method: "DELETE" });
+      if (res.ok) {
+        setBoards((prev) => prev.filter((b) => b.id !== boardId));
+        if (selectedBoard?.id === boardId) {
+          setSelectedBoard(null);
+          setStatuses([]);
+          setGroups([]);
+          setTasks([]);
+        }
+        toast.success("Board deleted");
+      }
+    } catch {
+      toast.error("Failed to delete board");
+    }
+  };
+
   // Create board
   const handleCreateBoard = async () => {
     if (!newBoardName.trim() || !selectedWorkspace) return;
@@ -297,7 +417,7 @@ export default function DashboardPage() {
       });
       if (res.ok) {
         setTasks((prev) =>
-          prev.map((t) => (t.id === taskId ? { ...t, statusId } : t))
+          prev.map((t) => (t.id === taskId ? { ...t, statusId } : t)),
         );
       }
     } catch {
@@ -322,16 +442,11 @@ export default function DashboardPage() {
   const filteredTasks = tasks.filter(
     (t) =>
       t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (t.description || "").toLowerCase().includes(searchQuery.toLowerCase())
+      (t.description || "").toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  // Group tasks by status
-  const tasksByStatus = (statusId: string) =>
-    filteredTasks.filter((t) => t.statusId === statusId);
-
-  const unassignedTasks = filteredTasks.filter(
-    (t) => !t.statusId || !statuses.find((s) => s.id === t.statusId)
-  );
+  // Derived list view
+  // (no grouping/drag-drop; status handled per-row select)
 
   if (loading) {
     return (
@@ -355,80 +470,166 @@ export default function DashboardPage() {
 
         <div className="flex-1 overflow-y-auto p-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Workspaces
-            </span>
-            <Dialog open={showNewWorkspace} onOpenChange={setShowNewWorkspace}>
-              <DialogTrigger asChild>
-                <button className="text-slate-400 hover:text-slate-600">
-                  <Plus className="h-4 w-4" />
-                </button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>New Workspace</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-2">
-                  <div>
-                    <Label>Name</Label>
-                    <Input
-                      value={newWorkspaceName}
-                      onChange={(e) => setNewWorkspaceName(e.target.value)}
-                      placeholder="My Workspace"
-                      className="mt-1"
-                    />
+            <button
+              type="button"
+              onClick={() => {
+                setEditHeadingValue(workspaceHeading);
+                setEditHeadingOpen(true);
+              }}
+              className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1 hover:text-slate-700"
+            >
+              {workspaceHeading}
+            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditHeadingValue(workspaceHeading);
+                  setEditHeadingOpen(true);
+                }}
+                className="text-slate-400 hover:text-slate-600"
+                aria-label="Rename workspaces heading"
+              >
+                ✎
+              </button>
+              <Dialog open={showNewWorkspace} onOpenChange={setShowNewWorkspace}>
+                <DialogTrigger asChild>
+                  <button className="text-slate-400 hover:text-slate-600">
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>New Workspace</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-2">
+                    <div>
+                      <Label>Name</Label>
+                      <Input
+                        value={newWorkspaceName}
+                        onChange={(e) => setNewWorkspaceName(e.target.value)}
+                        placeholder="My Workspace"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label>Description (optional)</Label>
+                      <Input
+                        value={newWorkspaceDesc}
+                        onChange={(e) => setNewWorkspaceDesc(e.target.value)}
+                        placeholder="What's this workspace for?"
+                        className="mt-1"
+                      />
+                    </div>
+                    <Button onClick={handleCreateWorkspace} className="w-full">
+                      Create Workspace
+                    </Button>
                   </div>
-                  <div>
-                    <Label>Description (optional)</Label>
-                    <Input
-                      value={newWorkspaceDesc}
-                      onChange={(e) => setNewWorkspaceDesc(e.target.value)}
-                      placeholder="What's this workspace for?"
-                      className="mt-1"
-                    />
-                  </div>
-                  <Button onClick={handleCreateWorkspace} className="w-full">
-                    Create Workspace
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
 
           <div className="space-y-1">
             {workspaces.map((ws) => (
-              <div key={ws.id}>
-                <button
-                  onClick={() => setSelectedWorkspace(ws)}
-                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
-                    selectedWorkspace?.id === ws.id
-                      ? "bg-slate-100 text-slate-900 font-medium"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <span>{ws.icon}</span>
-                  <span className="truncate">{ws.name}</span>
-                  {selectedWorkspace?.id === ws.id && (
-                    <ChevronRight className="h-3 w-3 ml-auto text-slate-400" />
-                  )}
-                </button>
+              <div key={ws.id} className="group">
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setSelectedWorkspace(ws)}
+                    className={`flex-1 flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
+                      selectedWorkspace?.id === ws.id
+                        ? "bg-slate-100 text-slate-900 font-medium"
+                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    <span>{ws.icon}</span>
+                    <span className="truncate">{ws.name}</span>
+                    {selectedWorkspace?.id === ws.id && (
+                      <ChevronRight className="h-3 w-3 ml-auto text-slate-400" />
+                    )}
+                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-50 opacity-0 group-hover:opacity-100 transition"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingWorkspace(ws);
+                          setEditWorkspaceName(ws.name);
+                          setEditWorkspaceDesc(ws.description || "");
+                        }}
+                      >
+                        Edit name
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-red-600"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPendingDelete(ws);
+                        }}
+                      >
+                        Remove workspace
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
 
                 {/* Show boards under selected workspace */}
                 {selectedWorkspace?.id === ws.id && (
                   <div className="ml-6 mt-1 space-y-0.5">
                     {boards.map((board) => (
-                      <button
-                        key={board.id}
-                        onClick={() => setSelectedBoard(board)}
-                        className={`w-full flex items-center gap-2 px-2 py-1 rounded text-sm transition-colors ${
-                          selectedBoard?.id === board.id
-                            ? "bg-indigo-50 text-indigo-700 font-medium"
-                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-                        }`}
-                      >
-                        <span className="text-xs">{board.icon}</span>
-                        <span className="truncate">{board.name}</span>
-                      </button>
+                      <div key={board.id} className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedBoard(board)}
+                          className={`flex-1 flex items-center gap-2 px-2 py-1 rounded text-sm transition-colors ${
+                            selectedBoard?.id === board.id
+                              ? "bg-indigo-50 text-indigo-700 font-medium"
+                              : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                          }`}
+                        >
+                          <span className="text-xs">{board.icon}</span>
+                          <span className="truncate">{board.name}</span>
+                        </button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={(e) => e.stopPropagation()}
+                              className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingBoard(board);
+                                setEditBoardName(board.name);
+                              }}
+                            >
+                              Rename
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPendingBoardDelete(board);
+                              }}
+                            >
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     ))}
                     <Dialog open={showNewBoard} onOpenChange={setShowNewBoard}>
                       <DialogTrigger asChild>
@@ -512,7 +713,10 @@ export default function DashboardPage() {
               <div className="ml-auto">
                 <Dialog open={showNewTask} onOpenChange={setShowNewTask}>
                   <DialogTrigger asChild>
-                    <Button size="sm" style={{ backgroundColor: "hsl(243, 75%, 59%)" }}>
+                    <Button
+                      size="sm"
+                      style={{ backgroundColor: "hsl(243, 75%, 59%)" }}
+                    >
                       <Plus className="h-4 w-4 mr-1" />
                       New Task
                     </Button>
@@ -586,7 +790,7 @@ export default function DashboardPage() {
                                       {cfg.label}
                                     </div>
                                   </SelectItem>
-                                )
+                                ),
                               )}
                             </SelectContent>
                           </Select>
@@ -628,83 +832,127 @@ export default function DashboardPage() {
         {/* Board Content */}
         <div className="flex-1 overflow-auto p-4">
           {selectedBoard ? (
-            <div className="flex gap-4 h-full">
-              {/* Unassigned column */}
-              {unassignedTasks.length > 0 && (
-                <div className="w-72 flex-shrink-0 flex flex-col">
-                  <div className="flex items-center gap-2 mb-3 px-1">
-                    <div className="h-2.5 w-2.5 rounded-full bg-slate-300" />
-                    <span className="text-sm font-medium text-slate-700">
-                      No Status
-                    </span>
-                    <span className="text-xs text-slate-400 ml-auto">
-                      {unassignedTasks.length}
-                    </span>
-                  </div>
-                  <div className="space-y-2 flex-1">
-                    {unassignedTasks.map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        statuses={statuses}
-                        groups={groups}
-                        onUpdateStatus={handleUpdateTaskStatus}
-                        onDelete={handleDeleteTask}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
+            <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+              <div className="grid grid-cols-[2fr,1fr,1fr,1fr,120px] px-4 py-3 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500">
+                <span>Task</span>
+                <span>Status</span>
+                <span>Priority</span>
+                <span>Group</span>
+                <span className="text-right pr-2">Actions</span>
+              </div>
 
-              {/* Status columns */}
-              {statuses.map((status) => (
-                <div key={status.id} className="w-72 flex-shrink-0 flex flex-col">
-                  <div className="flex items-center gap-2 mb-3 px-1">
-                    <div
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{ backgroundColor: status.color }}
-                    />
-                    <span className="text-sm font-medium text-slate-700">
-                      {status.name}
-                    </span>
-                    <span className="text-xs text-slate-400 ml-auto">
-                      {tasksByStatus(status.id).length}
-                    </span>
-                  </div>
-                  <div className="space-y-2 flex-1">
-                    {tasksByStatus(status.id).map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        statuses={statuses}
-                        groups={groups}
-                        onUpdateStatus={handleUpdateTaskStatus}
-                        onDelete={handleDeleteTask}
-                      />
-                    ))}
-                  </div>
+              {filteredTasks.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 text-sm">
+                  No tasks found. Create one to get started.
                 </div>
-              ))}
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {filteredTasks.map((task) => {
+                    const status = statuses.find((s) => s.id === task.statusId);
+                    const group = groups.find((g) => g.id === task.groupId);
+                    const priority = priorityConfig[task.priority];
 
-              {/* Empty state */}
-              {tasks.length === 0 && (
-                <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center">
-                    <FolderOpen className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500 font-medium">No tasks yet</p>
-                    <p className="text-sm text-slate-400 mt-1">
-                      Create your first task to get started
-                    </p>
-                    <Button
-                      size="sm"
-                      className="mt-4"
-                      style={{ backgroundColor: "hsl(243, 75%, 59%)" }}
-                      onClick={() => setShowNewTask(true)}
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      New Task
-                    </Button>
-                  </div>
+                    return (
+                      <div
+                        key={task.id}
+                        className="grid grid-cols-[2fr,1fr,1fr,1fr,120px] px-4 py-3 items-center text-sm"
+                      >
+                        <div className="flex flex-col gap-1">
+                          <span className="font-medium text-slate-900">
+                            {task.title}
+                          </span>
+                          {task.description && (
+                            <span className="text-xs text-slate-500 line-clamp-2">
+                              {task.description}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="max-w-[180px]">
+                          <Select
+                            value={task.statusId || ""}
+                            onValueChange={(val) =>
+                              handleUpdateTaskStatus(task.id, val)
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="No status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {statuses.map((s) => (
+                                <SelectItem key={s.id} value={s.id}>
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className="h-2 w-2 rounded-full"
+                                      style={{ backgroundColor: s.color }}
+                                    />
+                                    {s.name}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <span
+                            className="inline-flex items-center gap-2 text-xs font-medium px-2 py-1 rounded-full border"
+                            style={{
+                              color: priority.color,
+                              borderColor: priority.color,
+                            }}
+                          >
+                            {priority.label}
+                          </span>
+                        </div>
+
+                        <div className="text-slate-600 text-sm">
+                          {group ? group.name : "—"}
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2">
+                          {task.dueDate && (
+                            <span className="text-xs text-slate-400 flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(task.dueDate).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </span>
+                          )}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-50">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {statuses.map((s) => (
+                                <DropdownMenuItem
+                                  key={s.id}
+                                  onClick={() => handleUpdateTaskStatus(task.id, s.id)}
+                                >
+                                  <div
+                                    className="h-2 w-2 rounded-full mr-2"
+                                    style={{ backgroundColor: s.color }}
+                                  />
+                                  Move to {s.name}
+                                </DropdownMenuItem>
+                              ))}
+                              <Separator className="my-1" />
+                              <DropdownMenuItem
+                                className="text-red-600"
+                                onClick={() => handleDeleteTask(task.id)}
+                              >
+                                <Trash2 className="h-3 w-3 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -716,107 +964,207 @@ export default function DashboardPage() {
                   {workspaces.length === 0
                     ? "Create a workspace to get started"
                     : boards.length === 0
-                    ? "Create a board in this workspace"
-                    : "Select a board from the sidebar"}
+                      ? "Create a board in this workspace"
+                      : "Select a board from the sidebar"}
                 </p>
               </div>
             </div>
           )}
         </div>
       </main>
-    </div>
-  );
-}
 
-// Task Card Component
-function TaskCard({
-  task,
-  statuses,
-  groups,
-  onUpdateStatus,
-  onDelete,
-}: {
-  task: Task;
-  statuses: Status[];
-  groups: Group[];
-  onUpdateStatus: (taskId: string, statusId: string) => void;
-  onDelete: (taskId: string) => void;
-}) {
-  const group = groups.find((g) => g.id === task.groupId);
-  const priority = priorityConfig[task.priority];
-
-  return (
-    <div className="bg-white rounded-lg border border-slate-200 p-3 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="text-sm font-medium text-slate-900 leading-snug">
-          {task.title}
-        </h3>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="text-slate-400 hover:text-slate-600 shrink-0">
-              <MoreHorizontal className="h-4 w-4" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {statuses.map((s) => (
-              <DropdownMenuItem
-                key={s.id}
-                onClick={() => onUpdateStatus(task.id, s.id)}
+      {/* Edit Workspace Dialog */}
+      <Dialog
+        open={!!editingWorkspace}
+        onOpenChange={(open) => {
+          if (!open) setEditingWorkspace(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Workspace</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label>Name</Label>
+              <Input
+                value={editWorkspaceName}
+                onChange={(e) => setEditWorkspaceName(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Description (optional)</Label>
+              <Input
+                value={editWorkspaceDesc}
+                onChange={(e) => setEditWorkspaceDesc(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setEditingWorkspace(null)}
               >
-                <div
-                  className="h-2 w-2 rounded-full mr-2"
-                  style={{ backgroundColor: s.color }}
-                />
-                Move to {s.name}
-              </DropdownMenuItem>
-            ))}
-            <Separator className="my-1" />
-            <DropdownMenuItem
-              className="text-red-600"
-              onClick={() => onDelete(task.id)}
+                Cancel
+              </Button>
+              <Button className="flex-1" onClick={handleUpdateWorkspace}>
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation */}
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
+      >
+        {/* @ts-ignore Radix wrapped component typing loosened */}
+        <AlertDialogContent>
+          {/* @ts-ignore */}
+          <AlertDialogHeader>
+            {/* @ts-ignore */}
+            <AlertDialogTitle>Remove workspace?</AlertDialogTitle>
+            {/* @ts-ignore */}
+            <AlertDialogDescription>
+              This will delete the workspace and its boards/tasks. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {/* @ts-ignore */}
+          <AlertDialogFooter>
+            {/* @ts-ignore */}
+            <AlertDialogCancel onClick={() => setPendingDelete(null)}>
+              Cancel
+            </AlertDialogCancel>
+            {/* @ts-ignore */}
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                if (pendingDelete) handleDeleteWorkspace(pendingDelete.id);
+                setPendingDelete(null);
+              }}
             >
-              <Trash2 className="h-3 w-3 mr-2" />
               Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-      {task.description && (
-        <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-          {task.description}
-        </p>
-      )}
+      {/* Edit Board Dialog */}
+      <Dialog
+        open={!!editingBoard}
+        onOpenChange={(open) => {
+          if (!open) setEditingBoard(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Board</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label>Name</Label>
+              <Input
+                value={editBoardName}
+                onChange={(e) => setEditBoardName(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setEditingBoard(null)}
+              >
+                Cancel
+              </Button>
+              <Button className="flex-1" onClick={handleUpdateBoard}>
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-      <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-        <Badge
-          variant="outline"
-          className="text-[10px] px-1.5 py-0 h-5"
-          style={{
-            borderColor: priority.color,
-            color: priority.color,
-          }}
-        >
-          <Flag className="h-2.5 w-2.5 mr-0.5" />
-          {priority.label}
-        </Badge>
+      {/* Delete Board confirmation */}
+      <AlertDialog
+        open={!!pendingBoardDelete}
+        onOpenChange={(open) => {
+          if (!open) setPendingBoardDelete(null);
+        }}
+      >
+        {/* @ts-ignore */}
+        <AlertDialogContent>
+          {/* @ts-ignore */}
+          <AlertDialogHeader>
+            {/* @ts-ignore */}
+            <AlertDialogTitle>Remove board?</AlertDialogTitle>
+            {/* @ts-ignore */}
+            <AlertDialogDescription>
+              This will delete the board and its data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {/* @ts-ignore */}
+          <AlertDialogFooter>
+            {/* @ts-ignore */}
+            <AlertDialogCancel onClick={() => setPendingBoardDelete(null)}>
+              Cancel
+            </AlertDialogCancel>
+            {/* @ts-ignore */}
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                if (pendingBoardDelete) handleDeleteBoard(pendingBoardDelete.id);
+                setPendingBoardDelete(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-        {group && (
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
-            {group.name}
-          </Badge>
-        )}
-
-        {task.dueDate && (
-          <span className="text-[10px] text-slate-400 flex items-center gap-0.5 ml-auto">
-            <Calendar className="h-2.5 w-2.5" />
-            {new Date(task.dueDate).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            })}
-          </span>
-        )}
-      </div>
+      {/* Edit heading dialog */}
+      <Dialog open={editHeadingOpen} onOpenChange={setEditHeadingOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit sidebar heading</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label>Heading</Label>
+              <Input
+                value={editHeadingValue}
+                onChange={(e) => setEditHeadingValue(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setEditHeadingOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  setWorkspaceHeading(editHeadingValue || "WORKSPACES");
+                  setEditHeadingOpen(false);
+                }}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
