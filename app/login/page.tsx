@@ -75,14 +75,16 @@ export default function LoginPage() {
           <ThemeToggle />
         </div>
         <div className="text-center mb-8 flex flex-col items-center">
-          <Image
-            src="/moodlr-icon.png"
-            alt="Moodlr"
-            width={112}
-            height={112}
-            className="h-24 sm:h-28 w-auto mx-auto"
-            priority
-          />
+          <div className="bg-slate-900 dark:bg-transparent p-3 dark:p-0 rounded-md flex items-center justify-center">
+            <Image
+              src="/moodlr-icon.png"
+              alt="Moodlr"
+              width={112}
+              height={112}
+              className="h-24 sm:h-28 w-auto mx-auto"
+              priority
+            />
+          </div>
         </div>
 
         <div className="bg-card rounded-lg shadow-xl border border-border p-8">

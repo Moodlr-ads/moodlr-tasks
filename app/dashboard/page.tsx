@@ -467,15 +467,19 @@ export default function DashboardPage() {
       >
         <div className="p-4 border-b border-border">
           <div className="flex items-center gap-2">
-            <Image
-              src="/moodlr-icon.png"
-              alt="Moodlr Task"
-              width={24}
-              height={24}
-              className="h-6 w-6"
-              priority
-            />
-            <span className="text-lg font-bold text-slate-900">Moodlr Task</span>
+            <div className="bg-slate-900 dark:bg-transparent p-2 dark:p-0 rounded-md flex items-center justify-center">
+              <Image
+                src="/moodlr-icon.png"
+                alt="Moodlr Task"
+                width={24}
+                height={24}
+                className="h-6 w-6"
+                priority
+              />
+            </div>
+            <span className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              Moodlr Task
+            </span>
           </div>
         </div>
 
