@@ -18,7 +18,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import Image from "next/image";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,23 +45,10 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
+import Image from "next/image";
 import { signOut } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-
-function MoodlrMark({ className = "h-6 w-6" }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 64 64"
-      role="img"
-      aria-label="Moodlr"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <rect width="64" height="64" rx="12" fill="#00A6CE" />
-    </svg>
-  );
-}
 
 // Types
 interface Workspace {
@@ -487,6 +473,7 @@ export default function DashboardPage() {
               width={24}
               height={24}
               className="h-6 w-6"
+              priority
             />
             <span className="text-lg font-bold text-slate-900">Moodlr Task</span>
           </div>
