@@ -48,6 +48,7 @@ import {
 import Image from "next/image";
 import { signOut } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -146,6 +147,8 @@ export default function DashboardPage() {
   const [workspaceHeading, setWorkspaceHeading] = useState("WORKSPACES");
   const [editHeadingOpen, setEditHeadingOpen] = useState(false);
   const [editHeadingValue, setEditHeadingValue] = useState(workspaceHeading);
+  const [logoutLoading, setLogoutLoading] = useState(false);
+  const router = useRouter();
 
   // Fetch workspaces
   const fetchWorkspaces = useCallback(async () => {
@@ -349,6 +352,19 @@ export default function DashboardPage() {
       }
     } catch {
       toast.error("Failed to delete board");
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      setLogoutLoading(true);
+      await signOut({ redirect: false });
+      router.replace("/login");
+      router.refresh();
+    } catch {
+      toast.error("Failed to log out");
+    } finally {
+      setLogoutLoading(false);
     }
   };
 
@@ -686,10 +702,11 @@ export default function DashboardPage() {
             variant="ghost"
             size="sm"
             className="w-full justify-start text-muted-foreground hover:text-red-500"
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={handleLogout}
+            disabled={logoutLoading}
           >
             <LogOut className="h-4 w-4 mr-2" />
-            Log Out
+            {logoutLoading ? "Signing out..." : "Log Out"}
           </Button>
         </div>
       </aside>
