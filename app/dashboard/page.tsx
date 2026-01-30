@@ -49,6 +49,7 @@ import Image from "next/image";
 import { signOut } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // Types
 interface Workspace {
