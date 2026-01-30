@@ -74,9 +74,9 @@ export default function LoginPage() {
           <Image
             src="/moodlr-icon.png"
             alt="Moodlr"
-            width={80}
-            height={80}
-            className="h-16 sm:h-20 w-auto mx-auto"
+            width={112}
+            height={112}
+            className="h-24 sm:h-28 w-auto mx-auto"
             priority
           />
         </div>
