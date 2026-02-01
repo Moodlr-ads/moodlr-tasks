@@ -71,4 +71,49 @@
   .drag-handle:active {
     cursor: grabbing;
   }
+
+  /* Scrollbars (tabela/painel) */
+  .nice-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+  }
+  .nice-scrollbar::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+  }
+  .nice-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .nice-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.4);
+    border-radius: 9999px;
+  }
+  .nice-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.6);
+  }
+  .dark .nice-scrollbar {
+    scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+  }
+  .dark .nice-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.35);
+  }
+  .dark .nice-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.55);
+  }
+
+  /* Exibe tabela >=1200px, cards abaixo */
+  .task-table-view {
+    display: none;
+  }
+  .task-card-view {
+    display: block;
+  }
+  @media (min-width: 1200px) {
+    .task-table-view {
+      display: block;
+    }
+    .task-card-view {
+      display: none;
+    }
+  }
 }

@@ -35,8 +35,17 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { format } from "date-fns";
+import {
   Calendar,
   ChevronRight,
+  GripVertical,
   LayoutDashboard,
   Loader2,
   LogOut,
@@ -44,13 +53,35 @@ import {
   Plus,
   Search,
   Trash2,
+  User,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import { signOut } from "next-auth/react";
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/theme-toggle";
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 // Types
 interface Workspace {
@@ -87,6 +118,13 @@ interface Group {
   order: number;
 }
 
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  image?: string | null;
+}
+
 interface Task {
   id: string;
   boardId: string;
@@ -98,6 +136,8 @@ interface Task {
   startDate: string | null;
   dueDate: string | null;
   order: number;
+  assigneeId?: string | null;
+  assignee?: User | null;
 }
 
 const priorityConfig: Record<string, { label: string; color: string }> = {
@@ -106,6 +146,10 @@ const priorityConfig: Record<string, { label: string; color: string }> = {
   high: { label: "High", color: "#f97316" },
   critical: { label: "Critical", color: "#ef4444" },
 };
+
+const TASK_GRID =
+  "grid gap-x-3 gap-y-3 grid-cols-[minmax(260px,1.5fr)_150px_110px_150px_200px_140px_140px_60px] items-center";
+const TABLE_MIN_WIDTH = "min-w-[1100px] xl:min-w-[1200px]";
 
 export default function DashboardPage() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -117,9 +161,11 @@ export default function DashboardPage() {
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Dialog states
   const [showNewWorkspace, setShowNewWorkspace] = useState(false);
@@ -144,11 +190,21 @@ export default function DashboardPage() {
   const [newTaskPriority, setNewTaskPriority] = useState("medium");
   const [newTaskStatusId, setNewTaskStatusId] = useState("");
   const [newTaskGroupId, setNewTaskGroupId] = useState("");
+  const [newTaskAssigneeId, setNewTaskAssigneeId] = useState("unassigned");
+  const [newTaskDueDate, setNewTaskDueDate] = useState("");
+  const [newTaskStartDate, setNewTaskStartDate] = useState("");
   const [workspaceHeading, setWorkspaceHeading] = useState("WORKSPACES");
   const [editHeadingOpen, setEditHeadingOpen] = useState(false);
   const [editHeadingValue, setEditHeadingValue] = useState(workspaceHeading);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const router = useRouter();
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 4,
+      },
+    }),
+  );
 
   // Fetch workspaces
   const fetchWorkspaces = useCallback(async () => {
@@ -219,6 +275,84 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchWorkspaces();
   }, [fetchWorkspaces]);
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      const res = await fetch("/api/users");
+      if (res.ok) {
+        setUsers(await res.json());
+      }
+    } catch {
+      toast.error("Failed to load users");
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const [profileImage, setProfileImage] = useState("");
+  const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordSaving, setPasswordSaving] = useState(false);
+
+  const fetchProfile = useCallback(async () => {
+    try {
+      const res = await fetch("/api/users/me");
+      if (res.ok) {
+        const data = await res.json();
+        setProfileImage(data?.image || "");
+        setProfileName(data?.name || "");
+        setProfileEmail(data?.email || "");
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+useEffect(() => {
+  fetchProfile();
+}, [fetchProfile]);
+
+  const handleAvatarUpload = async (file: File) => {
+    try {
+      setAvatarUploading(true);
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        toast.error("Upload failed");
+        return;
+      }
+      const data = await res.json();
+      const imageUrl = data.imageUrl as string;
+      setProfileImage(imageUrl);
+
+      const saveRes = await fetch("/api/users/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: imageUrl }),
+      });
+      if (saveRes.ok) {
+        toast.success("Avatar updated");
+        fetchUsers();
+      } else {
+        toast.error("Failed to save avatar");
+      }
+    } catch {
+      toast.error("Upload failed");
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
 
   useEffect(() => {
     if (selectedWorkspace) {
@@ -407,6 +541,9 @@ export default function DashboardPage() {
           priority: newTaskPriority,
           statusId: newTaskStatusId || null,
           groupId: newTaskGroupId || null,
+          assigneeId: newTaskAssigneeId === "unassigned" ? null : newTaskAssigneeId,
+          startDate: newTaskStartDate || null,
+          dueDate: newTaskDueDate || null,
         }),
       });
       if (res.ok) {
@@ -417,6 +554,9 @@ export default function DashboardPage() {
         setNewTaskPriority("medium");
         setNewTaskStatusId("");
         setNewTaskGroupId("");
+        setNewTaskAssigneeId("unassigned");
+        setNewTaskDueDate("");
+        setNewTaskStartDate("");
         setShowNewTask(false);
         toast.success("Task created");
       }
@@ -456,12 +596,84 @@ export default function DashboardPage() {
     }
   };
 
+  const handleUpdateTaskAssignee = async (
+    taskId: string,
+    assigneeId: string | null,
+  ) => {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assigneeId }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
+        );
+      }
+    } catch {
+      toast.error("Failed to update assignee");
+    }
+  };
+
+  const handleUpdateTaskStartDate = async (taskId: string, startDate: string) => {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ startDate: startDate || null }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
+        );
+      }
+    } catch {
+      toast.error("Failed to update start date");
+    }
+  };
+
+  const handleUpdateTaskDueDate = async (taskId: string, dueDate: string) => {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dueDate: dueDate || null }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
+        );
+      }
+    } catch {
+      toast.error("Failed to update due date");
+    }
+  };
+
+  const persistReorder = async (orderedIds: string[]) => {
+    if (!selectedBoard) return;
+    try {
+      await fetch("/api/tasks/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ boardId: selectedBoard.id, orderedIds }),
+      });
+    } catch {
+      toast.error("Failed to save order");
+    }
+  };
+
   // Filter tasks by search
-  const filteredTasks = tasks.filter(
-    (t) =>
-      t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (t.description || "").toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  const filteredTasks = [...tasks]
+    .sort((a, b) => a.order - b.order)
+    .filter(
+      (t) =>
+        t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.description || "").toLowerCase().includes(searchQuery.toLowerCase()),
+    );
 
   // Derived list view
   // (no grouping/drag-drop; status handled per-row select)
@@ -512,7 +724,7 @@ export default function DashboardPage() {
             >
               {workspaceHeading}
             </button>
-            <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => {
@@ -567,7 +779,9 @@ export default function DashboardPage() {
               <div key={ws.id} className="group">
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => setSelectedWorkspace(ws)}
+                    onClick={() => {
+                      setSelectedWorkspace(ws);
+                    }}
                     className={`flex-1 flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
                       selectedWorkspace?.id === ws.id
                         ? "bg-slate-100 text-slate-900 font-medium"
@@ -620,7 +834,9 @@ export default function DashboardPage() {
                       <div key={board.id} className="flex items-center gap-1">
                         <button
                           type="button"
-                          onClick={() => setSelectedBoard(board)}
+                          onClick={() => {
+                            setSelectedBoard(board);
+                          }}
                           className={`flex-1 flex items-center gap-2 px-2 py-1 rounded text-sm transition-colors ${
                             selectedBoard?.id === board.id
                               ? "bg-indigo-50 text-indigo-700 font-medium"
@@ -695,6 +911,7 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
+
         </div>
 
         <div className="p-3 border-t border-border">
@@ -726,7 +943,7 @@ export default function DashboardPage() {
             <>
               <div className="flex items-center gap-2">
                 <span>{selectedBoard.icon}</span>
-                <h2 className="font-semibold text-slate-900">
+                <h2 className="font-semibold text-slate-900 dark:text-slate-200">
                   {selectedBoard.name}
                 </h2>
               </div>
@@ -742,221 +959,429 @@ export default function DashboardPage() {
                   />
                 </div>
               </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-end gap-3 ml-auto">
+              <h2 className="text-slate-500 mr-auto">
+                Select a board to get started
+              </h2>
+            </div>
+          )}
 
-              <div className="ml-auto flex items-center gap-3">
-                <ThemeToggle />
-                <Dialog open={showNewTask} onOpenChange={setShowNewTask}>
-                  <DialogTrigger asChild>
-                    <Button
-                      size="sm"
-                      style={{ backgroundColor: "hsl(243, 75%, 59%)" }}
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      New Task
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>New Task</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 pt-2">
+          <div className="ml-auto flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-muted-foreground hover:text-foreground"
+              onClick={() => setShowProfileModal(true)}
+            >
+              <Avatar className="h-7 w-7">
+                {profileImage ? (
+                  <AvatarImage src={profileImage} alt={profileName} />
+                ) : null}
+                <AvatarFallback className="bg-muted text-foreground text-xs">
+                  {getInitials(profileName)}
+                </AvatarFallback>
+              </Avatar>
+              <span className="hidden sm:block text-sm">{profileName || "Profile"}</span>
+            </Button>
+            <ThemeToggle />
+            {selectedBoard && (
+              <Dialog open={showNewTask} onOpenChange={setShowNewTask}>
+                <DialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    style={{ backgroundColor: "hsl(243, 75%, 59%)" }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    New Task
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>New Task</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-2">
+                    <div>
+                      <Label>Title</Label>
+                      <Input
+                        value={newTaskTitle}
+                        onChange={(e) => setNewTaskTitle(e.target.value)}
+                        placeholder="Task title"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label>Description (optional)</Label>
+                      <Input
+                        value={newTaskDesc}
+                        onChange={(e) => setNewTaskDesc(e.target.value)}
+                        placeholder="What needs to be done?"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <Label>Title</Label>
-                        <Input
-                          value={newTaskTitle}
-                          onChange={(e) => setNewTaskTitle(e.target.value)}
-                          placeholder="Task title"
-                          className="mt-1"
-                        />
+                        <Label>Status</Label>
+                        <Select
+                          value={newTaskStatusId}
+                          onValueChange={setNewTaskStatusId}
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {statuses.map((s) => (
+                              <SelectItem key={s.id} value={s.id}>
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="h-2 w-2 rounded-full"
+                                    style={{ backgroundColor: s.color }}
+                                  />
+                                  {s.name}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
-                        <Label>Description (optional)</Label>
-                        <Input
-                          value={newTaskDesc}
-                          onChange={(e) => setNewTaskDesc(e.target.value)}
-                          placeholder="What needs to be done?"
-                          className="mt-1"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label>Status</Label>
-                          <Select
-                            value={newTaskStatusId}
-                            onValueChange={setNewTaskStatusId}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {statuses.map((s) => (
-                                <SelectItem key={s.id} value={s.id}>
+                        <Label>Priority</Label>
+                        <Select
+                          value={newTaskPriority}
+                          onValueChange={setNewTaskPriority}
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(priorityConfig).map(
+                              ([key, cfg]) => (
+                                <SelectItem key={key} value={key}>
                                   <div className="flex items-center gap-2">
                                     <div
                                       className="h-2 w-2 rounded-full"
-                                      style={{ backgroundColor: s.color }}
+                                      style={{ backgroundColor: cfg.color }}
                                     />
-                                    {s.name}
+                                    {cfg.label}
                                   </div>
                                 </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>Priority</Label>
-                          <Select
-                            value={newTaskPriority}
-                            onValueChange={setNewTaskPriority}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Object.entries(priorityConfig).map(
-                                ([key, cfg]) => (
-                                  <SelectItem key={key} value={key}>
-                                    <div className="flex items-center gap-2">
-                                      <div
-                                        className="h-2 w-2 rounded-full"
-                                        style={{ backgroundColor: cfg.color }}
-                                      />
-                                      {cfg.label}
-                                    </div>
-                                  </SelectItem>
-                                ),
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                              ),
+                            )}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      {groups.length > 0 && (
-                        <div>
-                          <Label>Group (optional)</Label>
-                          <Select
-                            value={newTaskGroupId}
-                            onValueChange={setNewTaskGroupId}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue placeholder="Select group" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {groups.map((g) => (
-                                <SelectItem key={g.id} value={g.id}>
-                                  {g.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                      <Button onClick={handleCreateTask} className="w-full">
-                        Create Task
-                      </Button>
                     </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </>
-          ) : (
-            <h2 className="text-slate-500">Select a board to get started</h2>
-          )}
+                    {groups.length > 0 && (
+                      <div>
+                        <Label>Group (optional)</Label>
+                        <Select
+                          value={newTaskGroupId}
+                          onValueChange={setNewTaskGroupId}
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Select group" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {groups.map((g) => (
+                              <SelectItem key={g.id} value={g.id}>
+                                {g.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Assignee (optional)</Label>
+                        <Select
+                          value={newTaskAssigneeId}
+                          onValueChange={setNewTaskAssigneeId}
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Select person" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unassigned">Unassigned</SelectItem>
+                            {users.map((u) => (
+                              <SelectItem key={u.id} value={u.id}>
+                                {u.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Due date</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="mt-1 w-full justify-start"
+                            >
+                              {newTaskDueDate
+                                ? formatDateHuman(newTaskDueDate)
+                                : "Pick a date"}
+                            </Button>
+                          </PopoverTrigger>
+                          {/* @ts-ignore Radix type issue in .jsx wrapper */}
+                          <PopoverContent className="p-0" align="start">
+                            <CalendarPicker
+                              className="p-2"
+                              classNames={{}}
+                              mode="single"
+                              selected={
+                                newTaskDueDate
+                                  ? new Date(newTaskDueDate)
+                                  : undefined
+                              }
+                              onSelect={(date: Date | undefined) =>
+                                setNewTaskDueDate(
+                                  date ? date.toISOString().slice(0, 10) : "",
+                                )
+                              }
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                    <Button onClick={handleCreateTask} className="w-full">
+                      Create Task
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
         </header>
 
         {/* Board Content */}
-        <div className="flex-1 overflow-auto p-4">
+        <div className="flex-1 overflow-auto p-4 xl:px-10 xl:py-6">
           {selectedBoard ? (
-            <div className="bg-card border border-border rounded-lg shadow-sm overflow-hidden">
-              <div className="grid grid-cols-[2fr,1fr,1fr,1fr,120px] px-4 py-3 bg-muted border-b border-border text-xs font-semibold text-muted-foreground">
-                <span>Task</span>
-                <span>Status</span>
-                <span>Priority</span>
-                <span>Group</span>
-                <span className="text-right pr-2">Actions</span>
+            <div className="w-full max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6">
+              {/* Tabela com scroll controlado (>=1200px) */}
+              <div className="task-table-view">
+                <div className="bg-card border border-border rounded-lg shadow-sm w-full overflow-x-auto overflow-y-hidden nice-scrollbar">
+                  <div
+                    className={`${TASK_GRID} ${TABLE_MIN_WIDTH} px-4 py-3 xl:px-6 xl:py-3.5 text-[11px] font-medium tracking-wide text-muted-foreground border-b border-white/5 items-center`}
+                  >
+                    <span>Task</span>
+                    <span>Status</span>
+                    <span>Priority</span>
+                    <span>Group</span>
+                    <span>Assignee</span>
+                    <span>Start date</span>
+                    <span>Due date</span>
+                    <span className="justify-self-end pr-1 text-right">
+                      Actions
+                    </span>
+                  </div>
+
+                  {filteredTasks.length === 0 ? (
+                    <div className="py-12 text-center text-muted-foreground text-sm">
+                      No tasks found. Create one to get started.
+                    </div>
+                  ) : (
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={({ active, over }) => {
+                        if (!over || active.id === over.id) return;
+                        setTasks((prev) => {
+                          const oldIndex = prev.findIndex((t) => t.id === active.id);
+                          const newIndex = prev.findIndex((t) => t.id === over.id);
+                          const reordered = arrayMove(prev, oldIndex, newIndex).map(
+                            (t, idx) => ({ ...t, order: idx }),
+                          );
+                          persistReorder(reordered.map((t) => t.id));
+                          return reordered;
+                        });
+                      }}
+                    >
+                      <SortableContext
+                        items={filteredTasks.map((t) => t.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div className={`${TABLE_MIN_WIDTH}`}>
+                          {filteredTasks.map((task, idx) => (
+                            <SortableTaskRow
+                              key={task.id}
+                              rowIndex={idx}
+                              task={task}
+                              statuses={statuses}
+                              groups={groups}
+                              users={users}
+                              onStatusChange={handleUpdateTaskStatus}
+                              onDelete={handleDeleteTask}
+                              onAssigneeChange={handleUpdateTaskAssignee}
+                              onStartDateChange={handleUpdateTaskStartDate}
+                              onDueDateChange={handleUpdateTaskDueDate}
+                            />
+                          ))}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
+                  )}
+                </div>
               </div>
 
-              {filteredTasks.length === 0 ? (
-                <div className="py-12 text-center text-muted-foreground text-sm">
-                  No tasks found. Create one to get started.
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-100">
-                  {filteredTasks.map((task) => {
-                    const status = statuses.find((s) => s.id === task.statusId);
-                    const group = groups.find((g) => g.id === task.groupId);
+              {/* Card view para telas menores (<1200px) */}
+              <div className="task-card-view space-y-3">
+                {filteredTasks.length === 0 ? (
+                  <div className="py-8 text-center text-muted-foreground text-sm">
+                    No tasks found. Create one to get started.
+                  </div>
+                ) : (
+                  filteredTasks.map((task) => {
                     const priority = priorityConfig[task.priority];
+                    const group = groups.find((g) => g.id === task.groupId);
+                    const status = statuses.find((s) => s.id === task.statusId);
+                    const assignee = task.assignee;
+                    const assigneeImage = (assignee as any)?.image as string | undefined;
 
                     return (
                       <div
                         key={task.id}
-                        className="grid grid-cols-[2fr,1fr,1fr,1fr,120px] px-4 py-3 items-center text-sm"
+                        className="bg-card/70 border border-border rounded-lg p-4 space-y-3"
                       >
-                        <div className="flex flex-col gap-1">
-                          <span className="font-medium text-foreground">
-                            {task.title}
-                          </span>
-                          {task.description && (
-                            <span className="text-xs text-muted-foreground line-clamp-2">
-                              {task.description}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="max-w-[180px]">
-                          <Select
-                            value={task.statusId || ""}
-                            onValueChange={(val) =>
-                              handleUpdateTaskStatus(task.id, val)
-                            }
+                        <div className="flex items-start gap-3">
+                          <button
+                            className="text-muted-foreground hover:text-foreground mt-1"
+                            aria-label="Reorder handle (desktop only)"
                           >
-                            <SelectTrigger>
-                              <SelectValue placeholder="No status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {statuses.map((s) => (
-                                <SelectItem key={s.id} value={s.id}>
-                                  <div className="flex items-center gap-2">
-                                    <div
-                                      className="h-2 w-2 rounded-full"
-                                      style={{ backgroundColor: s.color }}
-                                    />
-                                    {s.name}
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            <GripVertical className="h-4 w-4" />
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-base font-semibold leading-tight line-clamp-2">
+                              {task.title}
+                            </p>
+                            {task.description && (
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                {task.description}
+                              </p>
+                            )}
+                          </div>
                         </div>
 
-                        <div>
-                          <span
-                            className="inline-flex items-center gap-2 text-xs font-medium px-2 py-1 rounded-full border"
-                            style={{
-                              color: priority.color,
-                              borderColor: priority.color,
-                            }}
-                          >
-                            {priority.label}
-                          </span>
-                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-[11px] text-muted-foreground">Status</Label>
+                            <Select
+                              value={task.statusId || ""}
+                              onValueChange={(val) => handleUpdateTaskStatus(task.id, val)}
+                            >
+                              <SelectTrigger className="h-10 w-full max-w-[180px]">
+                                <SelectValue placeholder="No status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {statuses.map((s) => (
+                                  <SelectItem key={s.id} value={s.id}>
+                                    <div className="flex items-center gap-2">
+                                      <div
+                                        className="h-2 w-2 rounded-full"
+                                        style={{ backgroundColor: s.color }}
+                                      />
+                                      {s.name}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
 
-                        <div className="text-slate-300 text-sm">
-                          {group ? group.name : "—"}
-                        </div>
-
-                        <div className="flex items-center justify-end gap-2">
-                          {task.dueDate && (
-                            <span className="text-xs text-slate-400 flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {new Date(task.dueDate).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                              })}
+                          <div className="flex items-center gap-2">
+                            <Label className="text-[11px] text-muted-foreground">Priority</Label>
+                            <span
+                              className="inline-flex items-center gap-2 text-[11px] font-medium px-2.5 py-1.5 rounded-full border h-9"
+                              style={{
+                                color: priority.color,
+                                borderColor: priority.color,
+                              }}
+                            >
+                              {priority.label}
                             </span>
-                          )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <Label className="text-[11px] text-muted-foreground">Group</Label>
+                            <span className="text-sm text-foreground">
+                              {group ? group.name : "—"}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <Label className="text-[11px] text-muted-foreground">Assignee</Label>
+                            <Select
+                              value={task.assigneeId ?? "unassigned"}
+                              onValueChange={(val) =>
+                                handleUpdateTaskAssignee(
+                                  task.id,
+                                  val === "unassigned" ? null : val,
+                                )
+                              }
+                            >
+                              <SelectTrigger className="h-10 w-full max-w-[220px]">
+                                <div className="flex items-center gap-2.5">
+                                  <Avatar className="h-6 w-6 shrink-0">
+                                    {assigneeImage ? (
+                                      <AvatarImage src={assigneeImage} alt={assignee?.name} />
+                                    ) : null}
+                                    <AvatarFallback className="bg-muted text-foreground text-[10px]">
+                                      {assignee ? getInitials(assignee.name) : "?"}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="text-sm text-foreground truncate">
+                                    {assignee ? assignee.name : "Unassigned"}
+                                  </span>
+                                </div>
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="unassigned">Unassigned</SelectItem>
+                                {users.map((u) => (
+                                  <SelectItem key={u.id} value={u.id}>
+                                    <div className="flex items-center gap-2.5">
+                                      <Avatar className="h-6 w-6">
+                                        {u.image ? <AvatarImage src={u.image} alt={u.name} /> : null}
+                                        <AvatarFallback className="bg-muted text-foreground text-[10px]">
+                                          {getInitials(u.name)}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <span>{u.name}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <Label className="text-[11px] text-muted-foreground">Start</Label>
+                            <div className="w-full max-w-[180px]">
+                              <DateCell
+                                label="Start"
+                                value={task.startDate}
+                                onChange={(v) => handleUpdateTaskStartDate(task.id, v)}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <Label className="text-[11px] text-muted-foreground">Due</Label>
+                            <div className="w-full max-w-[180px]">
+                              <DateCell
+                                label="Due"
+                                value={task.dueDate}
+                                onChange={(v) => handleUpdateTaskDueDate(task.id, v)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-end">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <button className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-50">
+                              <button className="p-2 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800">
                                 <MoreHorizontal className="h-4 w-4" />
                               </button>
                             </DropdownMenuTrigger>
@@ -986,9 +1411,9 @@ export default function DashboardPage() {
                         </div>
                       </div>
                     );
-                  })}
-                </div>
-              )}
+                  })
+                )}
+              </div>
             </div>
           ) : (
             <div className="h-full flex items-center justify-center">
@@ -1007,6 +1432,193 @@ export default function DashboardPage() {
         </div>
       </main>
 
+  {/* Profile Modal */}
+  <Dialog open={showProfileModal} onOpenChange={setShowProfileModal}>
+    <DialogContent className="max-w-xl">
+      <DialogHeader className="flex flex-row items-center justify-between">
+        <DialogTitle>Profile</DialogTitle>
+        <button
+          type="button"
+          className="text-muted-foreground hover:text-foreground"
+          onClick={() => setShowProfileModal(false)}
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </DialogHeader>
+      <div className="space-y-4">
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="relative"
+            disabled={avatarUploading}
+          >
+            <Avatar className="h-16 w-16">
+              {profileImage ? (
+                <AvatarImage src={profileImage} alt={profileName} />
+              ) : null}
+              <AvatarFallback className="bg-muted text-foreground text-lg">
+                {getInitials(profileName)}
+              </AvatarFallback>
+            </Avatar>
+            {avatarUploading && (
+              <div className="absolute inset-0 rounded-full bg-black/30 flex items-center justify-center text-xs text-white">
+                Uploading...
+              </div>
+            )}
+          </button>
+          <div className="space-y-2 flex-1">
+            <div>
+              <Label>Name</Label>
+              <Input
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Email</Label>
+              <Input
+                value={profileEmail}
+                onChange={(e) => setProfileEmail(e.target.value)}
+              />
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Click the avatar to upload a photo
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleAvatarUpload(file);
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Avatar URL (optional)</Label>
+          <Input
+            value={profileImage}
+            onChange={(e) => setProfileImage(e.target.value)}
+            placeholder="https://..."
+          />
+          <div className="flex gap-2">
+            <Button
+              className="flex-1"
+              onClick={async () => {
+                if (!profileName.trim()) {
+                  toast.error("Name is required");
+                  return;
+                }
+                if (
+                  profileEmail &&
+                  !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(profileEmail)
+                ) {
+                  toast.error("Invalid email");
+                  return;
+                }
+                try {
+                  const res = await fetch("/api/users/me", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      image: profileImage,
+                      name: profileName.trim(),
+                      email: profileEmail.trim(),
+                    }),
+                  });
+                  if (res.ok) {
+                    toast.success("Profile saved");
+                    fetchProfile();
+                    fetchUsers();
+                  } else {
+                    toast.error("Failed to save profile");
+                  }
+                } catch {
+                  toast.error("Failed to save profile");
+                }
+              }}
+            >
+              Save
+            </Button>
+          </div>
+        </div>
+
+        <div className="pt-2 space-y-2 border-t border-border">
+          <div className="text-sm font-medium">Change password</div>
+          <div className="space-y-2">
+            <div>
+              <Label>Current password</Label>
+              <Input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>New password</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Confirm new password</Label>
+              <Input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+            <Button
+              disabled={passwordSaving}
+              onClick={async () => {
+                if (newPassword !== confirmPassword) {
+                  toast.error("New password and confirmation must match");
+                  return;
+                }
+                if (newPassword.length < 8) {
+                  toast.error("Password must be at least 8 characters");
+                  return;
+                }
+                try {
+                  setPasswordSaving(true);
+                  const res = await fetch("/api/profile/password", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      currentPassword,
+                      newPassword,
+                      confirmPassword,
+                    }),
+                  });
+                  if (res.ok) {
+                    toast.success("Password updated");
+                    setCurrentPassword("");
+                    setNewPassword("");
+                    setConfirmPassword("");
+                  } else {
+                    const data = await res.json();
+                    toast.error(data?.error || "Failed to update password");
+                  }
+                } catch {
+                  toast.error("Failed to update password");
+                } finally {
+                  setPasswordSaving(false);
+                }
+              }}
+            >
+              {passwordSaving ? "Updating..." : "Update password"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </DialogContent>
+  </Dialog>
       {/* Edit Workspace Dialog */}
       <Dialog
         open={!!editingWorkspace}
@@ -1199,6 +1811,273 @@ export default function DashboardPage() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function getInitials(name?: string) {
+  if (!name) return "?";
+  const parts = name.trim().split(" ");
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function formatDateValue(dateStr: string | null | undefined) {
+  if (!dateStr) return "";
+  return new Date(dateStr).toISOString().slice(0, 10);
+}
+
+function formatDateHuman(dateStr: string | null | undefined) {
+  if (!dateStr) return "—";
+  try {
+    return format(new Date(dateStr), "dd MMM yyyy");
+  } catch {
+    return "—";
+  }
+}
+
+type RowProps = {
+  rowIndex: number;
+  task: Task;
+  statuses: Status[];
+  groups: Group[];
+  users: User[];
+  onStatusChange: (taskId: string, statusId: string) => void;
+  onDelete: (taskId: string) => void;
+  onAssigneeChange: (taskId: string, assigneeId: string | null) => void;
+  onStartDateChange: (taskId: string, startDate: string) => void;
+  onDueDateChange: (taskId: string, dueDate: string) => void;
+};
+
+const DateCell = ({
+  value,
+  onChange,
+  label,
+}: {
+  value: string | null;
+  onChange: (val: string) => void;
+  label: string;
+}) => {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9 min-w-[116px] w-full px-3 bg-background border-border text-foreground text-xs flex items-center gap-2 justify-start"
+        >
+          <Calendar className="h-3.5 w-3.5" />
+          {value ? formatDateHuman(value) : "Set date"}
+        </Button>
+      </PopoverTrigger>
+      {/* @ts-ignore Radix jsx wrapper typing */}
+      <PopoverContent className="p-2 w-auto" align="start">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium">{label}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={() => onChange("")}
+          >
+            Clear
+          </Button>
+        </div>
+        <CalendarPicker
+          className="rounded-md border"
+          classNames={{}}
+          mode="single"
+          selected={value ? new Date(value) : undefined}
+          onSelect={(date: Date | undefined) =>
+            onChange(date ? date.toISOString().slice(0, 10) : "")
+          }
+        />
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+function SortableTaskRow({
+  rowIndex,
+  task,
+  statuses,
+  groups,
+  users,
+  onStatusChange,
+  onDelete,
+  onAssigneeChange,
+  onStartDateChange,
+      onDueDateChange,
+}: RowProps) {
+  const priority = priorityConfig[task.priority];
+  const group = groups.find((g) => g.id === task.groupId);
+  const status = statuses.find((s) => s.id === task.statusId);
+  const assignee = task.assignee;
+  const assigneeImage = (assignee as any)?.image as string | undefined;
+
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: task.id });
+
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style as React.CSSProperties}
+      className={`${TASK_GRID} px-4 xl:px-6 py-3.5 text-sm transition border-b border-white/5 hover:bg-white/5 dark:hover:bg-white/5 bg-transparent`}
+    >
+      <div className="flex items-start gap-3 min-w-0">
+        <button
+          className="text-muted-foreground hover:text-foreground mt-1"
+          {...attributes}
+          {...listeners}
+          aria-label="Drag to reorder"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <div className="flex flex-col gap-1">
+          <span className="text-base font-semibold text-foreground leading-tight">
+            {task.title}
+          </span>
+          {task.description && (
+            <span className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+              {task.description}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-center min-w-0">
+        <Select
+          value={task.statusId || ""}
+          onValueChange={(val) => onStatusChange(task.id, val)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="No status" />
+          </SelectTrigger>
+          <SelectContent>
+            {statuses.map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: s.color }}
+                  />
+                  {s.name}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex items-center justify-center min-w-0">
+        <span
+          className="inline-flex items-center gap-2 text-[11px] font-medium px-2.5 py-1.5 rounded-full border h-9"
+          style={{
+            color: priority.color,
+            borderColor: priority.color,
+          }}
+        >
+          {priority.label}
+        </span>
+      </div>
+
+      <div className="flex items-center justify-center text-sm text-foreground min-w-0">
+        {group ? group.name : "—"}
+      </div>
+
+      <div className="flex items-center justify-center min-w-0">
+        <Select
+          value={task.assigneeId ?? "unassigned"}
+          onValueChange={(val) =>
+            onAssigneeChange(task.id, val === "unassigned" ? null : val)
+          }
+        >
+          <SelectTrigger className="w-full max-w-[220px] h-10 px-3 min-w-0">
+            <div className="flex items-center gap-2.5">
+              <Avatar className="h-6 w-6 shrink-0">
+                {assigneeImage ? (
+                  <AvatarImage src={assigneeImage} alt={assignee?.name} />
+                ) : null}
+                <AvatarFallback className="bg-muted text-foreground text-[10px]">
+                  {assignee ? getInitials(assignee.name) : "?"}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm text-foreground truncate">
+                {assignee ? assignee.name : "Unassigned"}
+              </span>
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="unassigned">Unassigned</SelectItem>
+            {users.map((u) => (
+              <SelectItem key={u.id} value={u.id}>
+                <div className="flex items-center gap-2.5">
+                  <Avatar className="h-6 w-6">
+                    {u.image ? <AvatarImage src={u.image} alt={u.name} /> : null}
+                    <AvatarFallback className="bg-muted text-foreground text-[10px]">
+                      {getInitials(u.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span>{u.name}</span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex justify-center min-w-0">
+        <DateCell
+          label="Start"
+          value={task.startDate}
+          onChange={(v) => onStartDateChange(task.id, v)}
+        />
+      </div>
+      <div className="flex justify-center min-w-0">
+        <DateCell
+          label="Due"
+          value={task.dueDate}
+          onChange={(v) => onDueDateChange(task.id, v)}
+        />
+      </div>
+
+      <div className="flex items-center justify-end gap-2 justify-self-end pr-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800">
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {statuses.map((s) => (
+              <DropdownMenuItem
+                key={s.id}
+                onClick={() => onStatusChange(task.id, s.id)}
+              >
+                <div
+                  className="h-2 w-2 rounded-full mr-2"
+                  style={{ backgroundColor: s.color }}
+                />
+                Move to {s.name}
+              </DropdownMenuItem>
+            ))}
+            <Separator className="my-1" />
+            <DropdownMenuItem
+              className="text-red-600"
+              onClick={() => onDelete(task.id)}
+            >
+              <Trash2 className="h-3 w-3 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 }
