@@ -149,7 +149,7 @@ const priorityConfig: Record<string, { label: string; color: string }> = {
 
 const TASK_GRID =
   "grid gap-x-3 gap-y-3 grid-cols-[minmax(260px,1.5fr)_150px_110px_150px_200px_140px_140px_60px] items-center";
-const TABLE_MIN_WIDTH = "min-w-[1100px] xl:min-w-[1200px]";
+const TABLE_MIN_WIDTH = "min-w-[1200px] xl:min-w-[1250px]";
 
 export default function DashboardPage() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -1159,7 +1159,7 @@ useEffect(() => {
         {/* Board Content */}
         <div className="flex-1 overflow-auto p-4 xl:px-10 xl:py-6">
           {selectedBoard ? (
-            <div className="w-full max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6">
+            <div className="w-full max-w-6xl xl:max-w-7xl 2xl:max-w-[1500px] mx-auto px-3 sm:px-4 lg:px-6">
               {/* Tabela com scroll controlado (>=1200px) */}
               <div className="task-table-view">
                 <div className="bg-card border border-border rounded-lg shadow-sm w-full overflow-x-auto overflow-y-hidden nice-scrollbar">
@@ -1173,7 +1173,7 @@ useEffect(() => {
                     <span>Assignee</span>
                     <span>Start date</span>
                     <span>Due date</span>
-                    <span className="justify-self-end pr-1 text-right">
+                    <span className="justify-self-end pr-2 text-right">
                       Actions
                     </span>
                   </div>
