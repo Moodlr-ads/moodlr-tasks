@@ -73,31 +73,39 @@
   }
 
   /* Scrollbars (tabela/painel) */
-  .nice-scrollbar {
+  .nice-scrollbar,
+  .nice-scrollbar-y {
     scrollbar-width: thin;
     scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
   }
-  .nice-scrollbar::-webkit-scrollbar {
+  .nice-scrollbar::-webkit-scrollbar,
+  .nice-scrollbar-y::-webkit-scrollbar {
     height: 8px;
     width: 8px;
   }
-  .nice-scrollbar::-webkit-scrollbar-track {
+  .nice-scrollbar::-webkit-scrollbar-track,
+  .nice-scrollbar-y::-webkit-scrollbar-track {
     background: transparent;
   }
-  .nice-scrollbar::-webkit-scrollbar-thumb {
+  .nice-scrollbar::-webkit-scrollbar-thumb,
+  .nice-scrollbar-y::-webkit-scrollbar-thumb {
     background: rgba(148, 163, 184, 0.4);
     border-radius: 9999px;
   }
-  .nice-scrollbar::-webkit-scrollbar-thumb:hover {
+  .nice-scrollbar::-webkit-scrollbar-thumb:hover,
+  .nice-scrollbar-y::-webkit-scrollbar-thumb:hover {
     background: rgba(148, 163, 184, 0.6);
   }
-  .dark .nice-scrollbar {
+  .dark .nice-scrollbar,
+  .dark .nice-scrollbar-y {
     scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
   }
-  .dark .nice-scrollbar::-webkit-scrollbar-thumb {
+  .dark .nice-scrollbar::-webkit-scrollbar-thumb,
+  .dark .nice-scrollbar-y::-webkit-scrollbar-thumb {
     background: rgba(148, 163, 184, 0.35);
   }
-  .dark .nice-scrollbar::-webkit-scrollbar-thumb:hover {
+  .dark .nice-scrollbar::-webkit-scrollbar-thumb:hover,
+  .dark .nice-scrollbar-y::-webkit-scrollbar-thumb:hover {
     background: rgba(148, 163, 184, 0.55);
   }
 
@@ -117,3 +125,4 @@
     }
   }
 }
+

@@ -1168,8 +1168,8 @@ useEffect(() => {
                   >
                     <span>Task</span>
                     <span>Status</span>
-                    <span>Priority</span>
-                    <span>Group</span>
+                    <span className="text-center">Priority</span>
+                    <span className="text-center">Group</span>
                     <span>Assignee</span>
                     <span>Start date</span>
                     <span>Due date</span>
