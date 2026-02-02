@@ -1468,7 +1468,7 @@ useEffect(() => {
             className="relative"
             disabled={avatarUploading}
           >
-            <UserAvatar src={profileImage} name={profileName} className="h-16 w-16" />
+          <UserAvatar src={profileImage} name={profileName} className="h-16 w-16" />
             {avatarUploading && (
               <div className="absolute inset-0 rounded-full bg-black/30 flex items-center justify-center text-xs text-white">
                 Uploading...
@@ -1533,7 +1533,7 @@ useEffect(() => {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      image: profileImage,
+                      image: profileImage || "",
                       name: profileName.trim(),
                       email: profileEmail.trim(),
                     }),
@@ -1562,7 +1562,7 @@ useEffect(() => {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      image: null,
+                      image: "",
                       name: profileName.trim(),
                       email: profileEmail.trim(),
                     }),
@@ -2037,47 +2037,19 @@ function SortableTaskRow({
         >
           <SelectTrigger className="w-full max-w-[220px] h-10 px-3 min-w-0">
             <div className="flex items-center gap-2.5">
-              <Avatar className="h-6 w-6 shrink-0">
-                {assigneeImage ? (
-                  <AvatarImage
-                    src={assigneeImage}
-                    alt={assignee?.name}
-                    className="object-cover"
-                    onError={(e) => {
-                      e.currentTarget.src = "";
-                    }}
-                  />
-                ) : null}
-                <AvatarFallback className="bg-muted text-foreground text-[10px]">
-                  {assignee ? getInitials(assignee.name) : "?"}
-                </AvatarFallback>
-              </Avatar>
+              <UserAvatar src={assigneeImage} name={assignee?.name} />
               <span className="text-sm text-foreground truncate">
                 {assignee ? assignee.name : "Unassigned"}
               </span>
             </div>
           </SelectTrigger>
           <SelectContent>
-                <SelectItem value="unassigned">Unassigned</SelectItem>
-                {users.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    <div className="flex items-center gap-2.5">
-                      <Avatar className="h-6 w-6">
-                        {u.image ? (
-                          <AvatarImage
-                            src={u.image}
-                            alt={u.name}
-                            className="object-cover"
-                            onError={(e) => {
-                              e.currentTarget.src = "";
-                            }}
-                          />
-                        ) : null}
-                        <AvatarFallback className="bg-muted text-foreground text-[10px]">
-                          {getInitials(u.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span>{u.name}</span>
+            <SelectItem value="unassigned">Unassigned</SelectItem>
+            {users.map((u) => (
+              <SelectItem key={u.id} value={u.id}>
+                <div className="flex items-center gap-2.5">
+                  <UserAvatar src={u.image || ""} name={u.name} />
+                  <span>{u.name}</span>
                 </div>
               </SelectItem>
             ))}
