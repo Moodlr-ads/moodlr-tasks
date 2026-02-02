@@ -1638,6 +1638,7 @@ useEffect(() => {
                       ),
                     );
                     fetchUsers();
+                    fetchProfile();
                     toast.success("Profile saved");
                     setShowProfileModal(false);
                   } else {
