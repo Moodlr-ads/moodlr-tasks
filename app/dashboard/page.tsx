@@ -330,6 +330,13 @@ export default function DashboardPage() {
     name: string;
     email: string;
   }>({ id: null, image: "", name: "", email: "" });
+
+  const isValidEmail = (email: string) => {
+    const trimmed = email.trim();
+    if (!trimmed) return false;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+    return emailRegex.test(trimmed);
+  };
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -1550,12 +1557,9 @@ useEffect(() => {
                 const emailChanged =
                   emailDraft.toLowerCase() !==
                   (profileSnapshot.current.email || "").trim().toLowerCase();
-                if (emailChanged) {
-                  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/i;
-                  if (!emailRegex.test(emailDraft)) {
-                    toast.error("Invalid email");
-                    return;
-                  }
+                if (emailChanged && !isValidEmail(emailDraft)) {
+                  toast.error("Invalid email");
+                  return;
                 }
                 try {
                   const res = await fetch("/api/users/me", {
@@ -1582,17 +1586,33 @@ useEffect(() => {
                     setProfileEmail(snap.email);
                     setUsers((prev) =>
                       prev.map((u) =>
-                        snap.id && u.id === snap.id ? { ...u, image: snap.image, name: snap.name, email: snap.email } : u,
+                        snap.id && u.id === snap.id
+                          ? {
+                              ...u,
+                              image: snap.image || null,
+                              name: snap.name,
+                              email: snap.email,
+                            }
+                          : u,
                       ),
                     );
                     setTasks((prev) =>
                       prev.map((t) =>
                         t.assignee && snap.id && t.assignee.id === snap.id
-                          ? { ...t, assignee: { ...t.assignee, image: snap.image, name: snap.name, email: snap.email } }
+                          ? {
+                              ...t,
+                              assignee: {
+                                ...t.assignee,
+                                image: snap.image || null,
+                                name: snap.name,
+                                email: snap.email,
+                              },
+                            }
                           : t,
                       ),
                     );
                     toast.success("Profile saved");
+                    setShowProfileModal(false);
                   } else {
                     toast.error("Failed to save profile");
                   }
@@ -1607,47 +1627,7 @@ useEffect(() => {
               variant="ghost"
               className="flex-none"
               onClick={async () => {
-                const previousImage = profileImage;
-                const previousUsers = users;
-                const previousTasks = tasks;
-                // optimistic: clear immediately
                 setProfileImage("");
-                setUsers((prev) =>
-                  prev.map((u) =>
-                    profileId && u.id === profileId ? { ...u, image: null } : u,
-                  ),
-                );
-                setTasks((prev) =>
-                  prev.map((t) =>
-                    t.assignee && profileId && t.assignee.id === profileId
-                      ? { ...t, assignee: { ...t.assignee, image: null } }
-                      : t,
-                  ),
-                );
-                try {
-                  const res = await fetch("/api/users/me", {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      image: null,
-                      name: profileName.trim(),
-                      email: profileEmail.trim(),
-                    }),
-                  });
-                  if (res.ok) {
-                    toast.success("Avatar removed");
-                  } else {
-                    setProfileImage(previousImage);
-                    setUsers(previousUsers);
-                    setTasks(previousTasks);
-                    toast.error("Failed to remove avatar");
-                  }
-                } catch {
-                  setProfileImage(previousImage);
-                  setUsers(previousUsers);
-                  setTasks(previousTasks);
-                  toast.error("Failed to remove avatar");
-                }
               }}
             >
               Remove photo
