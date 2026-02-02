@@ -389,6 +389,7 @@ useEffect(() => {
       const imageUrl = data.imageUrl as string;
       // Apenas prepara draft; salvar acontece no botão Save
       setProfileImage(imageUrl);
+      setProfileDirty(true);
       toast.success("Photo uploaded. Click Save to apply.");
     } catch {
       toast.error("Upload failed");
@@ -1516,14 +1517,20 @@ useEffect(() => {
               <Label>Name</Label>
               <Input
                 value={profileName}
-                onChange={(e) => setProfileName(e.target.value)}
+                onChange={(e) => {
+                  setProfileName(e.target.value);
+                  setProfileDirty(true);
+                }}
               />
             </div>
             <div>
               <Label>Email</Label>
               <Input
                 value={profileEmail}
-                onChange={(e) => setProfileEmail(e.target.value)}
+                onChange={(e) => {
+                  setProfileEmail(e.target.value);
+                  setProfileDirty(true);
+                }}
               />
             </div>
             <div className="text-xs text-muted-foreground">
@@ -1555,6 +1562,7 @@ useEffect(() => {
           <div className="flex gap-2">
             <Button
               className="flex-1"
+              disabled={!profileDirty}
               onClick={async () => {
                 if (!profileName.trim()) {
                   toast.error("Name is required");
