@@ -1,13 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,6 +11,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +30,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -34,41 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar as CalendarPicker } from "@/components/ui/calendar";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
-import {
-  Calendar,
-  ChevronRight,
-  GripVertical,
-  LayoutDashboard,
-  Loader2,
-  LogOut,
-  MoreHorizontal,
-  Plus,
-  Search,
-  Trash2,
-  User,
-  X,
-} from "lucide-react";
-import Image from "next/image";
-import { signOut } from "next-auth/react";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-} from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { ThemeToggle } from "@/components/theme-toggle";
 import {
   DndContext,
   PointerSensor,
@@ -83,6 +57,32 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { format, parse, parseISO } from "date-fns";
+import {
+  Calendar,
+  ChevronRight,
+  GripVertical,
+  LayoutDashboard,
+  Loader2,
+  LogOut,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  User,
+} from "lucide-react";
+import { signOut } from "next-auth/react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
+import { toast } from "sonner";
 
 // Types
 interface Workspace {
@@ -148,6 +148,25 @@ const priorityConfig: Record<string, { label: string; color: string }> = {
   critical: { label: "Critical", color: "#ef4444" },
 };
 
+const emojiOptions = [
+  "📁",
+  "🚀",
+  "📌",
+  "📋",
+  "📝",
+  "💻",
+  "🎯",
+  "🧪",
+  "🛠️",
+  "📈",
+  "📊",
+  "🎨",
+  "🧭",
+  "🧠",
+  "🛒",
+  "🏗️",
+];
+
 const UserAvatar = ({
   src,
   name,
@@ -157,18 +176,30 @@ const UserAvatar = ({
   name?: string | null;
   className?: string;
 }) => {
+  const normalizedSrc = src?.trim() ? src.trim() : undefined;
+
   const [errored, setErrored] = useState(false);
-  const showImage = src && !errored;
+
+  useEffect(() => {
+    setErrored(false);
+  }, [normalizedSrc]);
+
+  const showImage = !!normalizedSrc && !errored;
+
   return (
-    <Avatar className={cn("h-6 w-6 shrink-0", className)}>
+    <Avatar
+      className={cn("h-6 w-6 shrink-0", className)}
+      key={`${normalizedSrc ?? "no-src"}-${errored ? "err" : "ok"}`}
+    >
       {showImage ? (
         <AvatarImage
-          src={src || ""}
+          src={normalizedSrc}
           alt={name || "User avatar"}
           className="object-cover"
           onError={() => setErrored(true)}
         />
       ) : null}
+
       <AvatarFallback className="bg-muted text-foreground text-[10px] font-semibold uppercase">
         {name ? getInitials(name) : "?"}
       </AvatarFallback>
@@ -222,9 +253,23 @@ export default function DashboardPage() {
   const [newTaskAssigneeId, setNewTaskAssigneeId] = useState("unassigned");
   const [newTaskDueDate, setNewTaskDueDate] = useState("");
   const [newTaskStartDate, setNewTaskStartDate] = useState("");
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editTaskTitle, setEditTaskTitle] = useState("");
+  const [editTaskDesc, setEditTaskDesc] = useState("");
+  const [editTaskStatusId, setEditTaskStatusId] = useState("");
+  const [editTaskPriority, setEditTaskPriority] = useState<Task["priority"]>("medium");
+  const [editTaskGroupId, setEditTaskGroupId] = useState("none");
+  const [editTaskAssigneeId, setEditTaskAssigneeId] = useState("unassigned");
+  const [editTaskStartDate, setEditTaskStartDate] = useState("");
+  const [editTaskDueDate, setEditTaskDueDate] = useState("");
+  const [newWorkspaceIcon, setNewWorkspaceIcon] = useState("📁");
+  const [editWorkspaceIcon, setEditWorkspaceIcon] = useState("📁");
+  const [newBoardIcon, setNewBoardIcon] = useState("📋");
+  const [editBoardIcon, setEditBoardIcon] = useState("📋");
   const [workspaceHeading, setWorkspaceHeading] = useState("WORKSPACES");
   const [editHeadingOpen, setEditHeadingOpen] = useState(false);
   const [editHeadingValue, setEditHeadingValue] = useState(workspaceHeading);
+  const [seedingExamples, setSeedingExamples] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const router = useRouter();
   const sensors = useSensors(
@@ -320,24 +365,189 @@ export default function DashboardPage() {
     fetchUsers();
   }, [fetchUsers]);
 
-const [profileId, setProfileId] = useState<string | null>(null);
-const [profileImage, setProfileImage] = useState("");
-const [profileName, setProfileName] = useState("");
-const [profileEmail, setProfileEmail] = useState("");
-const [profileDirty, setProfileDirty] = useState(false);
-const profileSnapshot = useRef<{
-  id: string | null;
-  image: string;
-  name: string;
-  email: string;
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const [profileImage, setProfileImage] = useState("");
+  const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileDirty, setProfileDirty] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const profileSnapshot = useRef<{
+    id: string | null;
+    image: string;
+    name: string;
+    email: string;
   }>({ id: null, image: "", name: "", email: "" });
 
-const isValidEmail = (email: string) => {
-  const trimmed = email.trim();
-  if (!trimmed) return false;
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
-  return emailRegex.test(trimmed);
-};
+  const isValidEmail = (email: string) => {
+    const trimmed = email.trim();
+    if (!trimmed) return false;
+    if (/\s/.test(trimmed)) return false;
+
+    const atIndex = trimmed.lastIndexOf("@");
+    if (atIndex <= 0 || atIndex !== trimmed.indexOf("@")) return false;
+
+    const local = trimmed.slice(0, atIndex);
+    const domain = trimmed.slice(atIndex + 1);
+
+    if (local.length > 64 || domain.length > 255) return false;
+    if (!local || !domain) return false;
+    if (local.startsWith(".") || local.endsWith(".")) return false;
+    if (local.includes("..")) return false;
+    if (!/^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+$/.test(local)) return false;
+
+    const domainLower = domain.toLowerCase();
+    if (domainLower.startsWith(".") || domainLower.endsWith(".")) return false;
+    if (domainLower.includes("..")) return false;
+
+    const labels = domainLower.split(".");
+    if (labels.length < 2) return false;
+    if (labels.some((l) => l.length === 0 || l.length > 63)) return false;
+    if (
+      labels.some(
+        (l) => !/^[a-z0-9-]+$/.test(l) || l.startsWith("-") || l.endsWith("-"),
+      )
+    ) {
+      return false;
+    }
+
+    const tld = labels[labels.length - 1];
+    if (!/^[a-z]{2,24}$/.test(tld)) return false;
+
+    return true;
+  };
+
+  const getEmailTypoSuggestion = (email: string) => {
+    const trimmed = email.trim();
+    if (!isValidEmail(trimmed)) return null;
+    const atIndex = trimmed.lastIndexOf("@");
+    if (atIndex <= 0) return null;
+
+    const local = trimmed.slice(0, atIndex);
+    const domain = trimmed.slice(atIndex + 1).toLowerCase();
+
+    const knownDomains = [
+      // Google
+      "gmail.com",
+      "googlemail.com",
+
+      // Microsoft consumer
+      "outlook.com",
+      "hotmail.com",
+      "live.com",
+      "msn.com",
+
+      // Popular providers
+      "yahoo.com",
+      "icloud.com",
+      "me.com",
+      "mac.com",
+      "proton.me",
+      "protonmail.com",
+      "zoho.com",
+      "aol.com",
+      "gmx.com",
+      "gmx.net",
+      "yandex.com",
+      "yandex.ru",
+      "fastmail.com",
+      "tutanota.com",
+      "tuta.com",
+      "mail.com",
+
+      // Brasil
+      "uol.com.br",
+      "bol.com.br",
+      "terra.com.br",
+      "ig.com.br",
+    ];
+
+    const directTypos: Record<string, string> = {
+      // gmail
+      "gail.com": "gmail.com",
+      "gmai.com": "gmail.com",
+      "gmaill.com": "gmail.com",
+      "gmial.com": "gmail.com",
+      "gnail.com": "gmail.com",
+      "gmail.con": "gmail.com",
+
+      // outlook/hotmail/live
+      "outllok.com": "outlook.com",
+      "outlok.com": "outlook.com",
+      "outlook.con": "outlook.com",
+      "hotnail.com": "hotmail.com",
+      "hotmail.con": "hotmail.com",
+
+      // yahoo / icloud
+      "yaho.com": "yahoo.com",
+      "yahoo.con": "yahoo.com",
+      "icloud.con": "icloud.com",
+      "iclod.com": "icloud.com",
+
+      // br
+      "uol.con.br": "uol.com.br",
+      "bol.con.br": "bol.com.br",
+      "terra.con.br": "terra.com.br",
+      "ig.con.br": "ig.com.br",
+    };
+
+    const suggestedDirect = directTypos[domain];
+    if (suggestedDirect) return `${local}@${suggestedDirect}`;
+
+    const levenshtein = (a: string, b: string) => {
+      if (a === b) return 0;
+      if (a.length === 0) return b.length;
+      if (b.length === 0) return a.length;
+
+      const prev = new Array<number>(b.length + 1);
+      const curr = new Array<number>(b.length + 1);
+      for (let j = 0; j <= b.length; j++) prev[j] = j;
+
+      for (let i = 1; i <= a.length; i++) {
+        curr[0] = i;
+        const aChar = a.charCodeAt(i - 1);
+        for (let j = 1; j <= b.length; j++) {
+          const cost = aChar === b.charCodeAt(j - 1) ? 0 : 1;
+          curr[j] = Math.min(
+            prev[j] + 1,
+            curr[j - 1] + 1,
+            prev[j - 1] + cost,
+          );
+        }
+        for (let j = 0; j <= b.length; j++) prev[j] = curr[j];
+      }
+
+      return prev[b.length];
+    };
+
+    let bestDomain: string | null = null;
+    let bestDistance = Infinity;
+    for (const candidate of knownDomains) {
+      const dist = levenshtein(domain, candidate);
+      if (dist < bestDistance) {
+        bestDistance = dist;
+        bestDomain = candidate;
+      }
+    }
+
+    // Só sugere (e bloqueia) se estiver bem perto de um provedor conhecido
+    if (bestDomain && bestDistance <= 2 && bestDomain !== domain) {
+      return `${local}@${bestDomain}`;
+    }
+
+    return null;
+  };
+
+  const canLeaveProfileModal = () => {
+    if (!profileName.trim()) return false;
+    if (!isValidEmail(profileEmail)) return false;
+    if (getEmailTypoSuggestion(profileEmail)) return false;
+    const normalizedCurrentImage = profileImage.trim();
+    const normalizedSnapshotImage = profileSnapshot.current.image.trim();
+    const hasUnsavedAvatarChange =
+      profileDirty && normalizedCurrentImage !== normalizedSnapshotImage;
+    if (hasUnsavedAvatarChange) return false;
+    return true;
+  };
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -350,27 +560,27 @@ const isValidEmail = (email: string) => {
       const res = await fetch("/api/users/me");
       if (res.ok) {
         const data = await res.json();
-    const snap = {
-      id: data?.id || null,
-      image: data?.image || "",
-      name: data?.name || "",
-      email: data?.email || "",
-    };
-    profileSnapshot.current = snap;
-    setProfileId(snap.id);
-    setProfileImage(snap.image);
-    setProfileName(snap.name);
-    setProfileEmail(snap.email);
-    setProfileDirty(false);
-  }
-} catch {
-  // ignore
-}
-}, []);
+        const snap = {
+          id: data?.id || null,
+          image: data?.image || "",
+          name: data?.name || "",
+          email: data?.email || "",
+        };
+        profileSnapshot.current = snap;
+        setProfileId(snap.id);
+        setProfileImage(snap.image);
+        setProfileName(snap.name);
+        setProfileEmail(snap.email);
+        setProfileDirty(false);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
-useEffect(() => {
-  fetchProfile();
-}, [fetchProfile]);
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
 
   const handleAvatarUpload = async (file: File) => {
     try {
@@ -398,6 +608,96 @@ useEffect(() => {
     }
   };
 
+  const handleSaveProfile = async () => {
+    if (!profileDirty) return;
+
+    const normalizedName = profileName.trim();
+    const normalizedEmail = profileEmail.trim();
+    const normalizedImage = profileImage.trim();
+
+    if (!normalizedName) {
+      toast.error("Name is required");
+      return;
+    }
+    if (!isValidEmail(normalizedEmail)) {
+      toast.error("Invalid email");
+      return;
+    }
+    const emailSuggestion = getEmailTypoSuggestion(normalizedEmail);
+    if (emailSuggestion) {
+      toast.error(`Email seems incorrect. Did you mean ${emailSuggestion}?`);
+      return;
+    }
+
+    try {
+      setProfileSaving(true);
+      const res = await fetch("/api/users/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: normalizedName,
+          email: normalizedEmail,
+          image: normalizedImage ? normalizedImage : null,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error || "Failed to update profile");
+        return;
+      }
+
+      const updated = (await res.json()) as {
+        id: string;
+        name: string;
+        email: string;
+        image: string | null;
+      };
+
+      profileSnapshot.current = {
+        id: updated.id,
+        name: updated.name || "",
+        email: updated.email || "",
+        image: updated.image || "",
+      };
+
+      setProfileId(updated.id);
+      setProfileName(updated.name || "");
+      setProfileEmail(updated.email || "");
+      setProfileImage(updated.image || "");
+      setProfileDirty(false);
+
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === updated.id
+            ? { ...u, name: updated.name, email: updated.email, image: updated.image }
+            : u,
+        ),
+      );
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.assignee?.id === updated.id
+            ? {
+                ...t,
+                assignee: {
+                  ...t.assignee,
+                  name: updated.name,
+                  email: updated.email,
+                  image: updated.image,
+                },
+              }
+            : t,
+        ),
+      );
+
+      toast.success("Profile updated");
+    } catch {
+      toast.error("Failed to update profile");
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
   useEffect(() => {
     if (selectedWorkspace) {
       setSelectedBoard(null);
@@ -422,6 +722,7 @@ useEffect(() => {
         body: JSON.stringify({
           name: newWorkspaceName,
           description: newWorkspaceDesc || null,
+          icon: newWorkspaceIcon || undefined,
         }),
       });
       if (res.ok) {
@@ -430,6 +731,7 @@ useEffect(() => {
         setSelectedWorkspace(workspace);
         setNewWorkspaceName("");
         setNewWorkspaceDesc("");
+        setNewWorkspaceIcon("📁");
         setShowNewWorkspace(false);
         toast.success("Workspace created");
       }
@@ -448,6 +750,7 @@ useEffect(() => {
         body: JSON.stringify({
           name: editWorkspaceName,
           description: editWorkspaceDesc || null,
+          icon: editWorkspaceIcon || undefined,
         }),
       });
       if (res.ok) {
@@ -459,6 +762,7 @@ useEffect(() => {
           setSelectedWorkspace(updated);
         }
         setEditingWorkspace(null);
+        setEditWorkspaceIcon(updated.icon || "📁");
         toast.success("Workspace updated");
       }
     } catch {
@@ -496,7 +800,7 @@ useEffect(() => {
       const res = await fetch(`/api/boards/${editingBoard.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editBoardName }),
+        body: JSON.stringify({ name: editBoardName, icon: editBoardIcon || undefined }),
       });
       if (res.ok) {
         const updated = await res.json();
@@ -556,6 +860,7 @@ useEffect(() => {
         body: JSON.stringify({
           workspaceId: selectedWorkspace.id,
           name: newBoardName,
+          icon: newBoardIcon || undefined,
         }),
       });
       if (res.ok) {
@@ -563,6 +868,7 @@ useEffect(() => {
         setBoards((prev) => [board, ...prev]);
         setSelectedBoard(board);
         setNewBoardName("");
+        setNewBoardIcon("📋");
         setShowNewBoard(false);
         toast.success("Board created");
       }
@@ -571,9 +877,58 @@ useEffect(() => {
     }
   };
 
+  const handleSeedExamples = async () => {
+    if (seedingExamples) return;
+    setSeedingExamples(true);
+    try {
+      // Create workspace
+      const wsRes = await fetch("/api/workspaces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Product Development",
+          description: "Sample workspace with a starter board",
+          icon: "🚀",
+        }),
+      });
+      if (!wsRes.ok) throw new Error("workspace");
+      const ws = await wsRes.json();
+      // Create board
+      const boardRes = await fetch("/api/boards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspaceId: ws.id,
+          name: "Q1 Sprint Planning",
+          icon: "📋",
+        }),
+      });
+      if (!boardRes.ok) throw new Error("board");
+      const board = await boardRes.json();
+
+      setWorkspaces((prev) => [ws, ...prev]);
+      setBoards((prev) => [board, ...prev]);
+      setSelectedWorkspace(ws);
+      setSelectedBoard(board);
+      toast.success("Loaded example workspace and board");
+    } catch {
+      toast.error("Failed to load examples. Check database connection.");
+    } finally {
+      setSeedingExamples(false);
+    }
+  };
+
   // Create task
   const handleCreateTask = async () => {
     if (!newTaskTitle.trim() || !selectedBoard) return;
+    if (newTaskStartDate && newTaskDueDate) {
+      const start = parseDateInput(newTaskStartDate);
+      const due = parseDateInput(newTaskDueDate);
+      if (start && due && start.getTime() > due.getTime()) {
+        toast.error("Due date cannot be before start date");
+        return;
+      }
+    }
     try {
       const res = await fetch("/api/tasks", {
         method: "POST",
@@ -585,7 +940,8 @@ useEffect(() => {
           priority: newTaskPriority,
           statusId: newTaskStatusId || null,
           groupId: newTaskGroupId || null,
-          assigneeId: newTaskAssigneeId === "unassigned" ? null : newTaskAssigneeId,
+          assigneeId:
+            newTaskAssigneeId === "unassigned" ? null : newTaskAssigneeId,
           startDate: newTaskStartDate || null,
           dueDate: newTaskDueDate || null,
         }),
@@ -661,7 +1017,19 @@ useEffect(() => {
     }
   };
 
-  const handleUpdateTaskStartDate = async (taskId: string, startDate: string) => {
+  const handleUpdateTaskStartDate = async (
+    taskId: string,
+    startDate: string,
+  ) => {
+    const existing = tasks.find((t) => t.id === taskId);
+    if (existing?.dueDate) {
+      const due = parseDateInput(existing.dueDate);
+      const start = parseDateInput(startDate);
+      if (start && due && start.getTime() > due.getTime()) {
+        toast.error("Start date cannot be after due date");
+        return;
+      }
+    }
     try {
       const res = await fetch(`/api/tasks/${taskId}`, {
         method: "PUT",
@@ -680,6 +1048,15 @@ useEffect(() => {
   };
 
   const handleUpdateTaskDueDate = async (taskId: string, dueDate: string) => {
+    const existing = tasks.find((t) => t.id === taskId);
+    if (existing?.startDate) {
+      const start = parseDateInput(existing.startDate);
+      const due = parseDateInput(dueDate);
+      if (start && due && due.getTime() < start.getTime()) {
+        toast.error("Due date cannot be before start date");
+        return;
+      }
+    }
     try {
       const res = await fetch(`/api/tasks/${taskId}`, {
         method: "PUT",
@@ -694,6 +1071,82 @@ useEffect(() => {
       }
     } catch {
       toast.error("Failed to update due date");
+    }
+  };
+
+  const beginEditTask = (task: Task) => {
+    setEditingTask(task);
+    setEditTaskTitle(task.title);
+    setEditTaskDesc(task.description || "");
+    setEditTaskStatusId(task.statusId || "");
+    setEditTaskPriority(task.priority);
+    setEditTaskGroupId(task.groupId || "none");
+    setEditTaskAssigneeId(task.assigneeId || "unassigned");
+    setEditTaskStartDate(formatDateValue(task.startDate) || "");
+    setEditTaskDueDate(formatDateValue(task.dueDate) || "");
+  };
+
+  const handleSaveEditTask = async () => {
+    if (!editingTask) return;
+    if (!editTaskTitle.trim()) {
+      toast.error("Title is required");
+      return;
+    }
+    if (editTaskStartDate && editTaskDueDate) {
+      const start = parseDateInput(editTaskStartDate);
+      const due = parseDateInput(editTaskDueDate);
+      if (start && due && start.getTime() > due.getTime()) {
+        toast.error("Due date cannot be before start date");
+        return;
+      }
+    }
+    try {
+      const res = await fetch(`/api/tasks/${editingTask.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editTaskTitle,
+          description: editTaskDesc || null,
+          statusId: editTaskStatusId || null,
+          priority: editTaskPriority,
+          groupId: editTaskGroupId === "none" ? null : editTaskGroupId,
+          assigneeId:
+            editTaskAssigneeId === "unassigned" ? null : editTaskAssigneeId,
+          startDate: editTaskStartDate || null,
+          dueDate: editTaskDueDate || null,
+        }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+        setEditingTask(null);
+        toast.success("Task updated");
+      } else {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error || "Failed to update task");
+      }
+    } catch {
+      toast.error("Failed to update task");
+    }
+  };
+  const handleUpdateTaskPriority = async (
+    taskId: string,
+    priority: Task["priority"],
+  ) => {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priority }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
+        );
+      }
+    } catch {
+      toast.error("Failed to update priority");
     }
   };
 
@@ -768,7 +1221,7 @@ useEffect(() => {
             >
               {workspaceHeading}
             </button>
-          <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => {
@@ -780,7 +1233,10 @@ useEffect(() => {
               >
                 ✎
               </button>
-              <Dialog open={showNewWorkspace} onOpenChange={setShowNewWorkspace}>
+              <Dialog
+                open={showNewWorkspace}
+                onOpenChange={setShowNewWorkspace}
+              >
                 <DialogTrigger asChild>
                   <button className="text-muted-foreground hover:text-foreground">
                     <Plus className="h-4 w-4" />
@@ -801,6 +1257,24 @@ useEffect(() => {
                       />
                     </div>
                     <div>
+                      <Label>Icon</Label>
+                      <Select
+                        value={newWorkspaceIcon}
+                        onValueChange={setNewWorkspaceIcon}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {emojiOptions.map((emoji) => (
+                            <SelectItem key={emoji} value={emoji}>
+                              {emoji}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
                       <Label>Description (optional)</Label>
                       <Input
                         value={newWorkspaceDesc}
@@ -818,8 +1292,62 @@ useEffect(() => {
             </div>
           </div>
 
+          <Dialog open={editHeadingOpen} onOpenChange={setEditHeadingOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Rename section</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div>
+                  <Label>Title</Label>
+                  <Input
+                    value={editHeadingValue}
+                    onChange={(e) => setEditHeadingValue(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => {
+                      setEditHeadingOpen(false);
+                      setEditHeadingValue(workspaceHeading);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    onClick={() => {
+                      const next = editHeadingValue.trim();
+                      setWorkspaceHeading(next || "WORKSPACES");
+                      setEditHeadingOpen(false);
+                    }}
+                  >
+                    Save
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           <div className="space-y-1">
-            {workspaces.map((ws) => (
+            {workspaces.length === 0 ? (
+              <div className="text-xs text-muted-foreground space-y-2 p-2">
+                <div>No workspaces yet.</div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  disabled={seedingExamples}
+                  onClick={handleSeedExamples}
+                >
+                  {seedingExamples ? "Loading..." : "Load example workspace"}
+                </Button>
+              </div>
+            ) : (
+              workspaces.map((ws) => (
               <div key={ws.id} className="group">
                 <div className="flex items-center gap-1">
                   <button
@@ -906,6 +1434,7 @@ useEffect(() => {
                                 e.stopPropagation();
                                 setEditingBoard(board);
                                 setEditBoardName(board.name);
+                                setEditBoardIcon(board.icon || "📋");
                               }}
                             >
                               Rename
@@ -944,7 +1473,28 @@ useEffect(() => {
                               className="mt-1"
                             />
                           </div>
-                          <Button onClick={handleCreateBoard} className="w-full">
+                          <div>
+                            <Label>Icon</Label>
+                            <Select
+                              value={newBoardIcon}
+                              onValueChange={setNewBoardIcon}
+                            >
+                              <SelectTrigger className="mt-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {emojiOptions.map((emoji) => (
+                                  <SelectItem key={emoji} value={emoji}>
+                                    {emoji}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <Button
+                            onClick={handleCreateBoard}
+                            className="w-full"
+                          >
                             Create Board
                           </Button>
                         </div>
@@ -953,9 +1503,8 @@ useEffect(() => {
                   </div>
                 )}
               </div>
-            ))}
+            )))}
           </div>
-
         </div>
 
         <div className="p-3 border-t border-border">
@@ -971,6 +1520,233 @@ useEffect(() => {
           </Button>
         </div>
       </aside>
+
+      {/* Edit Task Dialog */}
+      <Dialog open={!!editingTask} onOpenChange={(open) => !open && setEditingTask(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Title</Label>
+              <Input
+                value={editTaskTitle}
+                onChange={(e) => setEditTaskTitle(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Description (optional)</Label>
+              <Input
+                value={editTaskDesc}
+                onChange={(e) => setEditTaskDesc(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Status</Label>
+                <Select
+                  value={editTaskStatusId}
+                  onValueChange={setEditTaskStatusId}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statuses.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="h-2 w-2 rounded-full"
+                            style={{ backgroundColor: s.color }}
+                          />
+                          {s.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Priority</Label>
+                <Select
+                  value={editTaskPriority}
+                  onValueChange={(v) => setEditTaskPriority(v as Task["priority"])}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(priorityConfig).map(([key, cfg]) => (
+                      <SelectItem key={key} value={key}>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="h-2 w-2 rounded-full"
+                            style={{ backgroundColor: cfg.color }}
+                          />
+                          {cfg.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Group (optional)</Label>
+                <Select
+                  value={editTaskGroupId}
+                  onValueChange={setEditTaskGroupId}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {groups.map((g) => (
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Assignee (optional)</Label>
+                <Select
+                  value={editTaskAssigneeId}
+                  onValueChange={setEditTaskAssigneeId}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select person" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Start date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="mt-1 w-full justify-start"
+                    >
+                      {editTaskStartDate
+                        ? formatDateHuman(editTaskStartDate)
+                        : "Pick a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  {/* @ts-ignore Radix type issue in .jsx wrapper */}
+                  <PopoverContent className="p-0" align="start">
+                    <CalendarPicker
+                      className="p-2"
+                      classNames={{ day_today: "text-muted-foreground" }}
+                      mode="single"
+                      selected={
+                        editTaskStartDate
+                          ? parseDateInput(editTaskStartDate) ?? undefined
+                          : undefined
+                      }
+                      defaultMonth={
+                        editTaskStartDate
+                          ? parseDateInput(editTaskStartDate) ?? undefined
+                          : undefined
+                      }
+                      onSelect={(date: Date | undefined) => {
+                        if (
+                          date &&
+                          editTaskDueDate &&
+                          parseDateInput(editTaskDueDate) &&
+                          date.getTime() >
+                            (parseDateInput(editTaskDueDate)?.getTime() ?? 0)
+                        ) {
+                          toast.error("Start date cannot be after due date");
+                          return;
+                        }
+                        setEditTaskStartDate(
+                          date ? format(date, "yyyy-MM-dd") : "",
+                        );
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label>Due date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="mt-1 w-full justify-start"
+                    >
+                      {editTaskDueDate
+                        ? formatDateHuman(editTaskDueDate)
+                        : "Pick a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  {/* @ts-ignore Radix type issue in .jsx wrapper */}
+                  <PopoverContent className="p-0" align="start">
+                    <CalendarPicker
+                      className="p-2"
+                      classNames={{ day_today: "text-muted-foreground" }}
+                      mode="single"
+                      selected={
+                        editTaskDueDate
+                          ? parseDateInput(editTaskDueDate) ?? undefined
+                          : undefined
+                      }
+                      defaultMonth={
+                        editTaskDueDate
+                          ? parseDateInput(editTaskDueDate) ?? undefined
+                          : undefined
+                      }
+                      onSelect={(date: Date | undefined) => {
+                        if (
+                          date &&
+                          editTaskStartDate &&
+                          parseDateInput(editTaskStartDate) &&
+                          date.getTime() <
+                            (parseDateInput(editTaskStartDate)?.getTime() ?? 0)
+                        ) {
+                          toast.error("Due date cannot be before start date");
+                          return;
+                        }
+                        setEditTaskDueDate(
+                          date ? format(date, "yyyy-MM-dd") : "",
+                        );
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setEditingTask(null)}
+              >
+                Cancel
+              </Button>
+              <Button className="flex-1" onClick={handleSaveEditTask}>
+                Save changes
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 bg-background text-foreground">
@@ -1019,8 +1795,14 @@ useEffect(() => {
               className="gap-2 text-muted-foreground hover:text-foreground"
               onClick={() => setShowProfileModal(true)}
             >
-              <UserAvatar src={profileImage} name={profileName} className="h-7 w-7" />
-              <span className="hidden sm:block text-sm">{profileName || "Profile"}</span>
+              <UserAvatar
+                src={profileImage || undefined}
+                name={profileName}
+                className="h-7 w-7"
+              />
+              <span className="hidden sm:block text-sm">
+                {profileName || "Profile"}
+              </span>
             </Button>
             <ThemeToggle />
             {selectedBoard && (
@@ -1140,7 +1922,9 @@ useEffect(() => {
                             <SelectValue placeholder="Select person" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="unassigned">Unassigned</SelectItem>
+                            <SelectItem value="unassigned">
+                              Unassigned
+                            </SelectItem>
                             {users.map((u) => (
                               <SelectItem key={u.id} value={u.id}>
                                 {u.name}
@@ -1149,38 +1933,93 @@ useEffect(() => {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div>
-                        <Label>Due date</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className="mt-1 w-full justify-start"
-                            >
-                              {newTaskDueDate
-                                ? formatDateHuman(newTaskDueDate)
-                                : "Pick a date"}
-                            </Button>
-                          </PopoverTrigger>
-                          {/* @ts-ignore Radix type issue in .jsx wrapper */}
-                          <PopoverContent className="p-0" align="start">
-                            <CalendarPicker
-                              className="p-2"
-                              classNames={{}}
-                              mode="single"
-                              selected={
-                                newTaskDueDate
-                                  ? new Date(newTaskDueDate)
-                                  : undefined
-                              }
-                              onSelect={(date: Date | undefined) =>
-                                setNewTaskDueDate(
-                                  date ? date.toISOString().slice(0, 10) : "",
-                                )
-                              }
-                            />
-                          </PopoverContent>
-                        </Popover>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label>Start date</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className="mt-1 w-full justify-start"
+                              >
+                                {newTaskStartDate
+                                  ? formatDateHuman(newTaskStartDate)
+                                  : "Pick a date"}
+                              </Button>
+                            </PopoverTrigger>
+                            {/* @ts-ignore Radix type issue in .jsx wrapper */}
+                            <PopoverContent className="p-0" align="start">
+                              <CalendarPicker
+                                className="p-2"
+                                classNames={{}}
+                                mode="single"
+                                selected={
+                                  newTaskStartDate
+                                    ? parseDateInput(newTaskStartDate) ?? undefined
+                                    : undefined
+                                }
+                    onSelect={(date: Date | undefined) => {
+                      if (
+                        date &&
+                        newTaskDueDate &&
+                        parseDateInput(newTaskDueDate) &&
+                        date.getTime() >
+                          (parseDateInput(newTaskDueDate)?.getTime() ?? 0)
+                      ) {
+                        toast.error("Start date cannot be after due date");
+                        return;
+                      }
+                      setNewTaskStartDate(
+                        date ? format(date, "yyyy-MM-dd") : "",
+                      );
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div>
+                          <Label>Due date</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className="mt-1 w-full justify-start"
+                              >
+                                {newTaskDueDate
+                                  ? formatDateHuman(newTaskDueDate)
+                                  : "Pick a date"}
+                              </Button>
+                            </PopoverTrigger>
+                            {/* @ts-ignore Radix type issue in .jsx wrapper */}
+                            <PopoverContent className="p-0" align="start">
+                              <CalendarPicker
+                                className="p-2"
+                                classNames={{}}
+                                mode="single"
+                                selected={
+                                  newTaskDueDate
+                                    ? parseDateInput(newTaskDueDate) ?? undefined
+                                    : undefined
+                                }
+                    onSelect={(date: Date | undefined) => {
+                      if (
+                        date &&
+                        newTaskStartDate &&
+                        parseDateInput(newTaskStartDate) &&
+                        date.getTime() <
+                          (parseDateInput(newTaskStartDate)?.getTime() ?? 0)
+                      ) {
+                        toast.error("Due date cannot be before start date");
+                        return;
+                      }
+                      setNewTaskDueDate(
+                        date ? format(date, "yyyy-MM-dd") : "",
+                      );
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+                        </div>
                       </div>
                     </div>
                     <Button onClick={handleCreateTask} className="w-full">
@@ -1226,11 +2065,17 @@ useEffect(() => {
                       onDragEnd={({ active, over }) => {
                         if (!over || active.id === over.id) return;
                         setTasks((prev) => {
-                          const oldIndex = prev.findIndex((t) => t.id === active.id);
-                          const newIndex = prev.findIndex((t) => t.id === over.id);
-                          const reordered = arrayMove(prev, oldIndex, newIndex).map(
-                            (t, idx) => ({ ...t, order: idx }),
+                          const oldIndex = prev.findIndex(
+                            (t) => t.id === active.id,
                           );
+                          const newIndex = prev.findIndex(
+                            (t) => t.id === over.id,
+                          );
+                          const reordered = arrayMove(
+                            prev,
+                            oldIndex,
+                            newIndex,
+                          ).map((t, idx) => ({ ...t, order: idx }));
                           persistReorder(reordered.map((t) => t.id));
                           return reordered;
                         });
@@ -1254,6 +2099,8 @@ useEffect(() => {
                               onAssigneeChange={handleUpdateTaskAssignee}
                               onStartDateChange={handleUpdateTaskStartDate}
                               onDueDateChange={handleUpdateTaskDueDate}
+                              onPriorityChange={handleUpdateTaskPriority}
+                              onEditTask={beginEditTask}
                             />
                           ))}
                         </div>
@@ -1275,7 +2122,9 @@ useEffect(() => {
                     const group = groups.find((g) => g.id === task.groupId);
                     const status = statuses.find((s) => s.id === task.statusId);
                     const assignee = task.assignee;
-                    const assigneeImage = (assignee as any)?.image as string | undefined;
+                    const assigneeImage = (assignee as any)?.image as
+                      | string
+                      | undefined;
 
                     return (
                       <div
@@ -1302,11 +2151,15 @@ useEffect(() => {
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="flex items-center gap-2">
-                          <Label className="text-[11px] text-muted-foreground">Status</Label>
+                          <div className="flex items-center gap-2">
+                            <Label className="text-[11px] text-muted-foreground">
+                              Status
+                            </Label>
                             <Select
                               value={task.statusId || ""}
-                              onValueChange={(val) => handleUpdateTaskStatus(task.id, val)}
+                              onValueChange={(val) =>
+                                handleUpdateTaskStatus(task.id, val)
+                              }
                             >
                               <SelectTrigger className="h-10 w-full max-w-[180px]">
                                 <SelectValue placeholder="No status" />
@@ -1328,7 +2181,9 @@ useEffect(() => {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <Label className="text-[11px] text-muted-foreground">Priority</Label>
+                            <Label className="text-[11px] text-muted-foreground">
+                              Priority
+                            </Label>
                             <span
                               className="inline-flex items-center gap-2 text-[11px] font-medium px-2.5 py-1.5 rounded-full border h-9"
                               style={{
@@ -1341,14 +2196,18 @@ useEffect(() => {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <Label className="text-[11px] text-muted-foreground">Group</Label>
+                            <Label className="text-[11px] text-muted-foreground">
+                              Group
+                            </Label>
                             <span className="text-sm text-foreground">
                               {group ? group.name : "—"}
                             </span>
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <Label className="text-[11px] text-muted-foreground">Assignee</Label>
+                            <Label className="text-[11px] text-muted-foreground">
+                              Assignee
+                            </Label>
                             <Select
                               value={task.assigneeId ?? "unassigned"}
                               onValueChange={(val) =>
@@ -1360,30 +2219,28 @@ useEffect(() => {
                             >
                               <SelectTrigger className="h-10 w-full max-w-[220px]">
                                 <div className="flex items-center gap-2.5">
-                                  <Avatar className="h-6 w-6 shrink-0">
-                                    {assigneeImage ? (
-                                      <AvatarImage src={assigneeImage} alt={assignee?.name} />
-                                    ) : null}
-                                    <AvatarFallback className="bg-muted text-foreground text-[10px]">
-                                      {assignee ? getInitials(assignee.name) : "?"}
-                                    </AvatarFallback>
-                                  </Avatar>
+                                  <UserAvatar
+                                    src={assigneeImage || undefined}
+                                    name={assignee?.name}
+                                    className="h-6 w-6"
+                                  />
                                   <span className="text-sm text-foreground truncate">
                                     {assignee ? assignee.name : "Unassigned"}
                                   </span>
                                 </div>
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="unassigned">Unassigned</SelectItem>
+                                <SelectItem value="unassigned">
+                                  Unassigned
+                                </SelectItem>
                                 {users.map((u) => (
                                   <SelectItem key={u.id} value={u.id}>
                                     <div className="flex items-center gap-2.5">
-                                      <Avatar className="h-6 w-6">
-                                        {u.image ? <AvatarImage src={u.image} alt={u.name} /> : null}
-                                        <AvatarFallback className="bg-muted text-foreground text-[10px]">
-                                          {getInitials(u.name)}
-                                        </AvatarFallback>
-                                      </Avatar>
+                                      <UserAvatar
+                                        src={u.image || undefined}
+                                        name={u.name}
+                                        className="h-6 w-6"
+                                      />
                                       <span>{u.name}</span>
                                     </div>
                                   </SelectItem>
@@ -1393,23 +2250,31 @@ useEffect(() => {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <Label className="text-[11px] text-muted-foreground">Start</Label>
+                            <Label className="text-[11px] text-muted-foreground">
+                              Start
+                            </Label>
                             <div className="w-full max-w-[180px]">
                               <DateCell
                                 label="Start"
                                 value={task.startDate}
-                                onChange={(v) => handleUpdateTaskStartDate(task.id, v)}
+                                onChange={(v) =>
+                                  handleUpdateTaskStartDate(task.id, v)
+                                }
                               />
                             </div>
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <Label className="text-[11px] text-muted-foreground">Due</Label>
+                            <Label className="text-[11px] text-muted-foreground">
+                              Due
+                            </Label>
                             <div className="w-full max-w-[180px]">
                               <DateCell
                                 label="Due"
                                 value={task.dueDate}
-                                onChange={(v) => handleUpdateTaskDueDate(task.id, v)}
+                                onChange={(v) =>
+                                  handleUpdateTaskDueDate(task.id, v)
+                                }
                               />
                             </div>
                           </div>
@@ -1422,11 +2287,22 @@ useEffect(() => {
                                 <MoreHorizontal className="h-4 w-4" />
                               </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                              <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                beginEditTask(task);
+                              }}
+                            >
+                              Edit task
+                            </DropdownMenuItem>
+                              <Separator className="my-1" />
                               {statuses.map((s) => (
                                 <DropdownMenuItem
                                   key={s.id}
-                                  onClick={() => handleUpdateTaskStatus(task.id, s.id)}
+                                  onClick={() =>
+                                    handleUpdateTaskStatus(task.id, s.id)
+                                  }
                                 >
                                   <div
                                     className="h-2 w-2 rounded-full mr-2"
@@ -1469,274 +2345,233 @@ useEffect(() => {
         </div>
       </main>
 
-  {/* Profile Modal */}
-<Dialog
-  open={showProfileModal}
-  onOpenChange={(open) => {
-    setShowProfileModal(open);
-    if (open) {
-      // reset form to snapshot when opening
-      const snap = profileSnapshot.current;
-      setProfileId(snap.id);
-      setProfileImage(snap.image);
-      setProfileName(snap.name);
-      setProfileEmail(snap.email);
-      setProfileDirty(false);
-    } else {
-      // discard unsaved changes on close
-      const snap = profileSnapshot.current;
-      setProfileId(snap.id);
-      setProfileImage(snap.image);
-      setProfileName(snap.name);
-      setProfileEmail(snap.email);
-      setProfileDirty(false);
-    }
-  }}
->
-    <DialogContent className="max-w-xl">
-      <DialogHeader className="flex flex-row items-center justify-between">
-        <DialogTitle>Profile</DialogTitle>
-      </DialogHeader>
-      <div className="space-y-4">
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="relative"
-            disabled={avatarUploading}
-          >
-          <UserAvatar src={profileImage} name={profileName} className="h-16 w-16" />
-            {avatarUploading && (
-              <div className="absolute inset-0 rounded-full bg-black/30 flex items-center justify-center text-xs text-white">
-                Uploading...
+      {/* Profile Modal */}
+      <Dialog
+        open={showProfileModal}
+        onOpenChange={(open) => {
+          if (!open && !canLeaveProfileModal()) {
+            const emailSuggestion = getEmailTypoSuggestion(profileEmail);
+            const normalizedCurrentImage = profileImage.trim();
+            const normalizedSnapshotImage = profileSnapshot.current.image.trim();
+            const hasUnsavedAvatarChange =
+              profileDirty && normalizedCurrentImage !== normalizedSnapshotImage;
+
+            if (hasUnsavedAvatarChange) {
+              toast.error("Save profile changes to close");
+            } else if (emailSuggestion) {
+              toast.error(`Email seems incorrect. Did you mean ${emailSuggestion}?`);
+            } else {
+              toast.error("Enter a valid email to close the profile");
+            }
+            setShowProfileModal(true);
+            return;
+          }
+
+          setShowProfileModal(open);
+          if (open) {
+            // reset form to snapshot when opening
+            const snap = profileSnapshot.current;
+            setProfileId(snap.id);
+            setProfileImage(snap.image);
+            setProfileName(snap.name);
+            setProfileEmail(snap.email);
+            setProfileDirty(false);
+          } else {
+            // discard unsaved changes on close
+            const snap = profileSnapshot.current;
+            setProfileId(snap.id);
+            setProfileImage(snap.image);
+            setProfileName(snap.name);
+            setProfileEmail(snap.email);
+            setProfileDirty(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader className="flex flex-row items-center justify-between">
+            <DialogTitle>Profile</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="relative"
+                disabled={avatarUploading}
+              >
+                <UserAvatar
+                  src={profileImage || undefined}
+                  name={profileName}
+                  className="h-16 w-16"
+                />
+                <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-background border border-border flex items-center justify-center">
+                  <Pencil className="h-3 w-3 text-muted-foreground" />
+                </div>
+                {avatarUploading && (
+                  <div className="absolute inset-0 rounded-full bg-black/30 flex items-center justify-center text-xs text-white">
+                    Uploading...
+                  </div>
+                )}
+              </button>
+              <div className="space-y-2 flex-1">
+                <div>
+                  <Label>Name</Label>
+                  <Input
+                    value={profileName}
+                    onChange={(e) => {
+                      setProfileName(e.target.value);
+                      setProfileDirty(true);
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label>Email</Label>
+                  <Input
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    value={profileEmail}
+                    onChange={(e) => {
+                      setProfileEmail(e.target.value);
+                      setProfileDirty(true);
+                    }}
+                  />
+                  {getEmailTypoSuggestion(profileEmail) ? (
+                    <div className="text-xs text-destructive mt-1">
+                      Did you mean {getEmailTypoSuggestion(profileEmail)}?
+                    </div>
+                  ) : null}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Click the avatar to upload a photo
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleAvatarUpload(file);
+                  }}
+                />
               </div>
-            )}
-          </button>
-          <div className="space-y-2 flex-1">
-            <div>
-              <Label>Name</Label>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Avatar URL (optional)</Label>
               <Input
-                value={profileName}
+                value={profileImage}
                 onChange={(e) => {
-                  setProfileName(e.target.value);
+                  setProfileImage(e.target.value);
                   setProfileDirty(true);
                 }}
+                placeholder="https://..."
               />
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  className="flex-none"
+                  onClick={() => {
+                    // 1) limpa no modal (draft)
+                    setProfileImage("");
+                    setProfileDirty(true);
+                    toast.success("Photo removed. Click Save to apply.");
+                  }}
+                >
+                  Remove photo
+                </Button>
+              </div>
             </div>
-            <div>
-              <Label>Email</Label>
-              <Input
-                value={profileEmail}
-                onChange={(e) => {
-                  setProfileEmail(e.target.value);
-                  setProfileDirty(true);
-                }}
-              />
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Click the avatar to upload a photo
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleAvatarUpload(file);
-              }}
-            />
-          </div>
-        </div>
 
-        <div className="space-y-2">
-          <Label>Avatar URL (optional)</Label>
-          <Input
-            value={profileImage}
-            onChange={(e) => {
-              setProfileImage(e.target.value);
-              setProfileDirty(true);
-            }}
-            placeholder="https://..."
-          />
-          <div className="flex gap-2">
-            <Button
-              className="flex-1"
-              disabled={!profileDirty}
-              onClick={async () => {
-                if (!profileName.trim()) {
-                  toast.error("Name is required");
-                  return;
+            <div className="flex">
+              <Button
+                className="w-full"
+                disabled={
+                  profileSaving ||
+                  !profileDirty ||
+                  !profileName.trim() ||
+                  !isValidEmail(profileEmail) ||
+                  !!getEmailTypoSuggestion(profileEmail)
                 }
-                const emailDraft = profileEmail.trim();
-                const emailChanged =
-                  emailDraft.toLowerCase() !==
-                  (profileSnapshot.current.email || "").trim().toLowerCase();
-                if (emailChanged && !isValidEmail(emailDraft)) {
-                  toast.error("Invalid email");
-                  return;
-                }
-                if (!profileDirty) {
-                  setShowProfileModal(false);
-                  return;
-                }
-                try {
-                  const res = await fetch("/api/users/me", {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      image: profileImage?.trim() ? profileImage.trim() : null,
-                      name: profileName.trim(),
-                      email: profileEmail.trim(),
-                    }),
-                  });
-                  if (res.ok) {
-                    const updated = await res.json();
-                    const newImage =
-                      profileImage?.trim() && updated?.image
-                        ? updated.image
-                        : profileImage?.trim()
-                          ? profileImage.trim()
-                          : "";
-                    const snap = {
-                      id: updated?.id || profileId,
-                      image: newImage,
-                      name: updated?.name || profileName,
-                      email: updated?.email || profileEmail,
-                    };
-                    profileSnapshot.current = snap;
-                    setProfileId(snap.id);
-                    setProfileImage(snap.image);
-                    setProfileName(snap.name);
-                    setProfileEmail(snap.email);
-                    setProfileDirty(false);
-                    setUsers((prev) =>
-                      prev.map((u) =>
-                        snap.id && u.id === snap.id
-                          ? {
-                              ...u,
-                              image: snap.image || null,
-                              name: snap.name,
-                              email: snap.email,
-                            }
-                          : u,
-                      ),
-                    );
-                    setTasks((prev) =>
-                      prev.map((t) =>
-                        t.assignee && snap.id && t.assignee.id === snap.id
-                          ? {
-                              ...t,
-                              assignee: {
-                                ...t.assignee,
-                                image: snap.image || null,
-                                name: snap.name,
-                                email: snap.email,
-                              },
-                            }
-                          : t,
-                      ),
-                    );
-                    fetchUsers();
-                    fetchProfile();
-                    toast.success("Profile saved");
-                    setShowProfileModal(false);
-                  } else {
-                    toast.error("Failed to save profile");
-                  }
-                } catch {
-                  toast.error("Failed to save profile");
-                }
-              }}
-            >
-              Save
-            </Button>
-            <Button
-              variant="ghost"
-              className="flex-none"
-              onClick={() => {
-                // apenas draft/local: não persiste até salvar
-                setProfileImage("");
-                setProfileDirty(true);
-              }}
-            >
-              Remove photo
-            </Button>
-          </div>
-        </div>
+                onClick={handleSaveProfile}
+              >
+                {profileSaving ? "Saving..." : "Save"}
+              </Button>
+            </div>
 
-        <div className="pt-2 space-y-2 border-t border-border">
-          <div className="text-sm font-medium">Change password</div>
-          <div className="space-y-2">
-            <div>
-              <Label>Current password</Label>
-              <Input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-              />
+            <div className="pt-2 space-y-2 border-t border-border">
+              <div className="text-sm font-medium">Change password</div>
+              <div className="space-y-2">
+                <div>
+                  <Label>Current password</Label>
+                  <Input
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>New password</Label>
+                  <Input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>Confirm new password</Label>
+                  <Input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
+                </div>
+                <Button
+                  disabled={passwordSaving}
+                  onClick={async () => {
+                    if (newPassword !== confirmPassword) {
+                      toast.error("New password and confirmation must match");
+                      return;
+                    }
+                    if (newPassword.length < 8) {
+                      toast.error("Password must be at least 8 characters");
+                      return;
+                    }
+                    try {
+                      setPasswordSaving(true);
+                      const res = await fetch("/api/profile/password", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          currentPassword,
+                          newPassword,
+                          confirmPassword,
+                        }),
+                      });
+                      if (res.ok) {
+                        toast.success("Password updated");
+                        setCurrentPassword("");
+                        setNewPassword("");
+                        setConfirmPassword("");
+                      } else {
+                        const data = await res.json();
+                        toast.error(data?.error || "Failed to update password");
+                      }
+                    } catch {
+                      toast.error("Failed to update password");
+                    } finally {
+                      setPasswordSaving(false);
+                    }
+                  }}
+                >
+                  {passwordSaving ? "Updating..." : "Update password"}
+                </Button>
+              </div>
             </div>
-            <div>
-              <Label>New password</Label>
-              <Input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Confirm new password</Label>
-              <Input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-            </div>
-            <Button
-              disabled={passwordSaving}
-              onClick={async () => {
-                if (newPassword !== confirmPassword) {
-                  toast.error("New password and confirmation must match");
-                  return;
-                }
-                if (newPassword.length < 8) {
-                  toast.error("Password must be at least 8 characters");
-                  return;
-                }
-                try {
-                  setPasswordSaving(true);
-                  const res = await fetch("/api/profile/password", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      currentPassword,
-                      newPassword,
-                      confirmPassword,
-                    }),
-                  });
-                  if (res.ok) {
-                    toast.success("Password updated");
-                    setCurrentPassword("");
-                    setNewPassword("");
-                    setConfirmPassword("");
-                  } else {
-                    const data = await res.json();
-                    toast.error(data?.error || "Failed to update password");
-                  }
-                } catch {
-                  toast.error("Failed to update password");
-                } finally {
-                  setPasswordSaving(false);
-                }
-              }}
-            >
-              {passwordSaving ? "Updating..." : "Update password"}
-            </Button>
           </div>
-        </div>
-      </div>
-    </DialogContent>
-  </Dialog>
+        </DialogContent>
+      </Dialog>
       {/* Edit Workspace Dialog */}
       <Dialog
         open={!!editingWorkspace}
@@ -1746,17 +2581,35 @@ useEffect(() => {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Workspace</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-2">
-            <div>
-              <Label>Name</Label>
-              <Input
-                value={editWorkspaceName}
-                onChange={(e) => setEditWorkspaceName(e.target.value)}
-                className="mt-1"
-              />
-            </div>
+              <DialogTitle>Edit Workspace</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              <div>
+                <Label>Name</Label>
+                <Input
+                  value={editWorkspaceName}
+                  onChange={(e) => setEditWorkspaceName(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>Icon</Label>
+                <Select
+                  value={editWorkspaceIcon}
+                  onValueChange={setEditWorkspaceIcon}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {emojiOptions.map((emoji) => (
+                      <SelectItem key={emoji} value={emoji}>
+                        {emoji}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             <div>
               <Label>Description (optional)</Label>
               <Input
@@ -1796,7 +2649,8 @@ useEffect(() => {
             <AlertDialogTitle>Remove workspace?</AlertDialogTitle>
             {/* @ts-ignore */}
             <AlertDialogDescription>
-              This will delete the workspace and its boards/tasks. This action cannot be undone.
+              This will delete the workspace and its boards/tasks. This action
+              cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {/* @ts-ignore */}
@@ -1839,6 +2693,24 @@ useEffect(() => {
                 className="mt-1"
               />
             </div>
+            <div>
+              <Label>Icon</Label>
+              <Select
+                value={editBoardIcon}
+                onValueChange={setEditBoardIcon}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {emojiOptions.map((emoji) => (
+                    <SelectItem key={emoji} value={emoji}>
+                      {emoji}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -1870,7 +2742,8 @@ useEffect(() => {
             <AlertDialogTitle>Remove board?</AlertDialogTitle>
             {/* @ts-ignore */}
             <AlertDialogDescription>
-              This will delete the board and its data. This action cannot be undone.
+              This will delete the board and its tasks. This action cannot be
+              undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {/* @ts-ignore */}
@@ -1883,7 +2756,9 @@ useEffect(() => {
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700"
               onClick={() => {
-                if (pendingBoardDelete) handleDeleteBoard(pendingBoardDelete.id);
+                if (pendingBoardDelete) {
+                  handleDeleteBoard(pendingBoardDelete.id);
+                }
                 setPendingBoardDelete(null);
               }}
             >
@@ -1892,43 +2767,6 @@ useEffect(() => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Edit heading dialog */}
-      <Dialog open={editHeadingOpen} onOpenChange={setEditHeadingOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit sidebar heading</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-2">
-            <div>
-              <Label>Heading</Label>
-              <Input
-                value={editHeadingValue}
-                onChange={(e) => setEditHeadingValue(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setEditHeadingOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={() => {
-                  setWorkspaceHeading(editHeadingValue || "WORKSPACES");
-                  setEditHeadingOpen(false);
-                }}
-              >
-                Save
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -1940,19 +2778,37 @@ function getInitials(name?: string) {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
+function parseDateInput(dateStr?: string | null) {
+  if (!dateStr) return null;
+  const trimmed = dateStr.trim();
+  if (!trimmed) return null;
+
+  try {
+    const parsed = parse(trimmed, "yyyy-MM-dd", new Date());
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  } catch {}
+
+  try {
+    const parsed = parseISO(trimmed);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  } catch {}
+
+  const fallback = new Date(trimmed);
+  return Number.isNaN(fallback.getTime()) ? null : fallback;
+}
+
 function formatDateValue(dateStr: string | null | undefined) {
-  if (!dateStr) return "";
-  return new Date(dateStr).toISOString().slice(0, 10);
+  const parsed = parseDateInput(dateStr);
+  if (!parsed) return "";
+  return format(parsed, "yyyy-MM-dd");
 }
 
 function formatDateHuman(dateStr: string | null | undefined) {
-  if (!dateStr) return "—";
-  try {
-    return format(new Date(dateStr), "dd MMM yyyy");
-  } catch {
-    return "—";
-  }
+  const parsed = parseDateInput(dateStr);
+  if (!parsed) return "—";
+  return format(parsed, "dd MMM yyyy");
 }
+
 
 type RowProps = {
   rowIndex: number;
@@ -1965,16 +2821,22 @@ type RowProps = {
   onAssigneeChange: (taskId: string, assigneeId: string | null) => void;
   onStartDateChange: (taskId: string, startDate: string) => void;
   onDueDateChange: (taskId: string, dueDate: string) => void;
+  onPriorityChange: (taskId: string, priority: Task["priority"]) => void;
+  onEditTask: (task: Task) => void;
 };
 
 const DateCell = ({
   value,
   onChange,
   label,
+  pairedDate,
+  pairedType,
 }: {
   value: string | null;
   onChange: (val: string) => void;
   label: string;
+  pairedDate?: string | null;
+  pairedType?: "start" | "due";
 }) => {
   return (
     <Popover>
@@ -2003,12 +2865,34 @@ const DateCell = ({
         </div>
         <CalendarPicker
           className="rounded-md border"
-          classNames={{}}
+          classNames={{
+            day_today: "text-muted-foreground",
+          }}
           mode="single"
-          selected={value ? new Date(value) : undefined}
-          onSelect={(date: Date | undefined) =>
-            onChange(date ? date.toISOString().slice(0, 10) : "")
-          }
+          selected={value ? parseDateInput(value) ?? undefined : undefined}
+          defaultMonth={value ? parseDateInput(value) ?? undefined : undefined}
+          onSelect={(date: Date | undefined) => {
+            if (pairedType && pairedDate && date) {
+              const paired = parseDateInput(pairedDate);
+              if (paired) {
+                if (
+                  pairedType === "due" &&
+                  paired.getTime() < date.getTime()
+                ) {
+                  toast.error("Start date cannot be after due date");
+                  return;
+                }
+                if (
+                  pairedType === "start" &&
+                  paired.getTime() > date.getTime()
+                ) {
+                  toast.error("Due date cannot be before start date");
+                  return;
+                }
+              }
+            }
+            onChange(date ? format(date, "yyyy-MM-dd") : "");
+          }}
         />
       </PopoverContent>
     </Popover>
@@ -2025,7 +2909,9 @@ function SortableTaskRow({
   onDelete,
   onAssigneeChange,
   onStartDateChange,
-      onDueDateChange,
+  onDueDateChange,
+  onPriorityChange,
+  onEditTask,
 }: RowProps) {
   const priority = priorityConfig[task.priority];
   const group = groups.find((g) => g.id === task.groupId);
@@ -2035,8 +2921,14 @@ function SortableTaskRow({
     (task.assigneeId ? users.find((u) => u.id === task.assigneeId) : null);
   const assigneeImage = (assignee as any)?.image as string | undefined;
 
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: task.id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id });
 
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -2096,15 +2988,33 @@ function SortableTaskRow({
       </div>
 
       <div className="flex items-center justify-center min-w-0">
-        <span
-          className="inline-flex items-center gap-2 text-[11px] font-medium px-2.5 py-1.5 rounded-full border h-9"
-          style={{
-            color: priority.color,
-            borderColor: priority.color,
-          }}
+        <Select
+          value={task.priority}
+          onValueChange={(val) => onPriorityChange(task.id, val as Task["priority"])}
         >
-          {priority.label}
-        </span>
+          <SelectTrigger className="h-9 w-[120px] px-3">
+            <div className="flex items-center gap-2 text-[11px] font-medium">
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: priority.color }}
+              />
+              {priority.label}
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(priorityConfig).map(([key, cfg]) => (
+              <SelectItem key={key} value={key}>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: cfg.color }}
+                  />
+                  {cfg.label}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex items-center justify-center text-sm text-foreground min-w-0">
@@ -2122,19 +3032,20 @@ function SortableTaskRow({
             <div className="flex items-center gap-2.5">
               {assignee ? (
                 <>
-                  <UserAvatar src={assigneeImage} name={assignee?.name} />
+                  <UserAvatar
+                    src={assigneeImage || undefined}
+                    name={assignee?.name}
+                  />
                   <span className="text-sm text-foreground truncate">
                     {assignee.name}
                   </span>
                 </>
               ) : (
                 <>
-                  <Avatar className="h-6 w-6 shrink-0">
-                    <AvatarFallback className="bg-muted text-foreground text-[10px]">
-                      ?
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm text-foreground truncate">Unassigned</span>
+                  <UserAvatar />
+                  <span className="text-sm text-foreground truncate">
+                    Unassigned
+                  </span>
                 </>
               )}
             </div>
@@ -2144,7 +3055,7 @@ function SortableTaskRow({
             {users.map((u) => (
               <SelectItem key={u.id} value={u.id}>
                 <div className="flex items-center gap-2.5">
-                  <UserAvatar src={u.image || ""} name={u.name} />
+                  <UserAvatar src={u.image || undefined} name={u.name} />
                   <span>{u.name}</span>
                 </div>
               </SelectItem>
@@ -2158,6 +3069,8 @@ function SortableTaskRow({
           label="Start"
           value={task.startDate}
           onChange={(v) => onStartDateChange(task.id, v)}
+          pairedDate={task.dueDate}
+          pairedType="due"
         />
       </div>
       <div className="flex justify-center min-w-0">
@@ -2165,6 +3078,8 @@ function SortableTaskRow({
           label="Due"
           value={task.dueDate}
           onChange={(v) => onDueDateChange(task.id, v)}
+          pairedDate={task.startDate}
+          pairedType="start"
         />
       </div>
 
@@ -2176,6 +3091,12 @@ function SortableTaskRow({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => onEditTask(task)}
+            >
+              Edit task
+            </DropdownMenuItem>
+            <Separator className="my-1" />
             {statuses.map((s) => (
               <DropdownMenuItem
                 key={s.id}

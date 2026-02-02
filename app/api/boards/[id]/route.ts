@@ -12,22 +12,25 @@ async function ensureBoardOwner(boardId: string, userId: string) {
   return board;
 }
 
-export async function PUT(req: NextRequest, context: any) {
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
-    const { params } = context;
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { name, description, color, icon } = await req.json();
-    const board = await ensureBoardOwner(params.id, session.user.id);
+    const board = await ensureBoardOwner(id, session.user.id);
     if (!board) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
     const updated = await prisma.board.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name,
         description: description ?? undefined,
@@ -46,23 +49,26 @@ export async function PUT(req: NextRequest, context: any) {
   }
 }
 
-export async function DELETE(_req: NextRequest, context: any) {
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
-    const { params } = context;
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const board = await ensureBoardOwner(params.id, session.user.id);
+    const board = await ensureBoardOwner(id, session.user.id);
     if (!board) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    await prisma.task.deleteMany({ where: { boardId: params.id } });
-    await prisma.status.deleteMany({ where: { boardId: params.id } });
-    await prisma.group.deleteMany({ where: { boardId: params.id } });
-    await prisma.board.delete({ where: { id: params.id } });
+    await prisma.task.deleteMany({ where: { boardId: id } });
+    await prisma.status.deleteMany({ where: { boardId: id } });
+    await prisma.group.deleteMany({ where: { boardId: id } });
+    await prisma.board.delete({ where: { id } });
 
     return NextResponse.json({ success: true });
   } catch (error) {

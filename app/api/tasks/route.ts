@@ -1,7 +1,14 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { getServerSession } from "next-auth";
+import { NextResponse } from "next/server";
+
+function toUtcMidday(dateStr?: string | null) {
+  if (!dateStr) return null;
+  const trimmed = String(dateStr).trim();
+  if (!trimmed) return null;
+  return new Date(`${trimmed}T12:00:00Z`);
+}
 
 export async function GET(req: Request) {
   try {
@@ -32,6 +39,12 @@ export async function GET(req: Request) {
     const tasks = await prisma.task.findMany({
       where,
       orderBy: { order: "asc" },
+      include: {
+        assignee: {
+          // ✅ FIX: incluir image do assignee (resolve sumir no F5)
+          select: { id: true, name: true, email: true, image: true },
+        },
+      },
     });
 
     return NextResponse.json(tasks);
@@ -39,7 +52,7 @@ export async function GET(req: Request) {
     console.error("Error fetching tasks:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -61,7 +74,20 @@ export async function POST(req: Request) {
       startDate,
       dueDate,
       order,
+      assigneeId,
     } = await req.json();
+
+    const existingMax = await prisma.task.aggregate({
+      where: { boardId },
+      _max: { order: true },
+    });
+
+    const nextOrder =
+      typeof order === "number"
+        ? order
+        : typeof existingMax._max.order === "number"
+          ? existingMax._max.order + 1
+          : 0;
 
     const task = await prisma.task.create({
       data: {
@@ -71,9 +97,16 @@ export async function POST(req: Request) {
         groupId,
         statusId,
         priority: priority || "medium",
-        startDate: startDate ? new Date(startDate) : null,
-        dueDate: dueDate ? new Date(dueDate) : null,
-        order: order || 0,
+        startDate: toUtcMidday(startDate),
+        dueDate: toUtcMidday(dueDate),
+        order: nextOrder,
+        assigneeId: assigneeId || null,
+      },
+      include: {
+        assignee: {
+          // ✅ FIX: incluir image do assignee (mantém consistente ao criar)
+          select: { id: true, name: true, email: true, image: true },
+        },
       },
     });
 
@@ -82,7 +115,7 @@ export async function POST(req: Request) {
     console.error("Error creating task:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

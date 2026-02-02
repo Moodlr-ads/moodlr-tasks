@@ -15,9 +15,11 @@ model User {
   id           String      @id @default(uuid())
   email        String      @unique
   name         String
+  image        String?
   passwordHash String      @map("password_hash")
   createdAt    DateTime    @default(now()) @map("created_at")
   workspaces   Workspace[]
+  tasks        Task[]      @relation("UserTasks")
 
   @@map("users")
 }
@@ -94,6 +96,8 @@ model Task {
   board       Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
   groupId     String?   @map("group_id")
   group       Group?    @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  assigneeId  String?   @map("assignee_id")
+  assignee    User?     @relation("UserTasks", fields: [assigneeId], references: [id], onDelete: SetNull)
   title       String
   description String?
   statusId    String?   @map("status_id")
@@ -108,6 +112,7 @@ model Task {
   @@index([boardId])
   @@index([groupId])
   @@index([statusId])
+  @@index([assigneeId])
   @@index([dueDate])
   @@index([priority])
   @@map("tasks")
