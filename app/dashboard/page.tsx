@@ -147,6 +147,34 @@ const priorityConfig: Record<string, { label: string; color: string }> = {
   critical: { label: "Critical", color: "#ef4444" },
 };
 
+const UserAvatar = ({
+  src,
+  name,
+  className,
+}: {
+  src?: string | null;
+  name?: string | null;
+  className?: string;
+}) => {
+  const [errored, setErrored] = useState(false);
+  const showImage = src && !errored;
+  return (
+    <Avatar className={cn("h-6 w-6 shrink-0", className)}>
+      {showImage ? (
+        <AvatarImage
+          src={src || ""}
+          alt={name || "User avatar"}
+          className="object-cover"
+          onError={() => setErrored(true)}
+        />
+      ) : null}
+      <AvatarFallback className="bg-muted text-foreground text-[10px]">
+        {name ? getInitials(name) : "?"}
+      </AvatarFallback>
+    </Avatar>
+  );
+};
+
 const TASK_GRID =
   "grid gap-x-3 gap-y-3 grid-cols-[minmax(260px,1.5fr)_150px_110px_150px_200px_140px_140px_60px] items-center";
 const TABLE_MIN_WIDTH = "min-w-[1200px] xl:min-w-[1250px]";
@@ -975,14 +1003,7 @@ useEffect(() => {
               className="gap-2 text-muted-foreground hover:text-foreground"
               onClick={() => setShowProfileModal(true)}
             >
-              <Avatar className="h-7 w-7">
-                {profileImage ? (
-                  <AvatarImage src={profileImage} alt={profileName} />
-                ) : null}
-                <AvatarFallback className="bg-muted text-foreground text-xs">
-                  {getInitials(profileName)}
-                </AvatarFallback>
-              </Avatar>
+              <UserAvatar src={profileImage} name={profileName} className="h-7 w-7" />
               <span className="hidden sm:block text-sm">{profileName || "Profile"}</span>
             </Button>
             <ThemeToggle />
@@ -1162,7 +1183,7 @@ useEffect(() => {
             <div className="w-full max-w-6xl xl:max-w-7xl 2xl:max-w-[1500px] mx-auto px-3 sm:px-4 lg:px-6">
               {/* Tabela com scroll controlado (>=1200px) */}
               <div className="task-table-view">
-                <div className="bg-card border border-border rounded-lg shadow-sm w-full overflow-x-auto overflow-y-hidden nice-scrollbar">
+                <div className="bg-card border border-border rounded-lg shadow-sm w-full overflow-x-auto overflow-y-hidden nice-scrollbar tasks-scroll">
                   <div
                     className={`${TASK_GRID} ${TABLE_MIN_WIDTH} px-4 py-3 xl:px-6 xl:py-3.5 text-[11px] font-medium tracking-wide text-muted-foreground border-b border-white/5 items-center`}
                   >
@@ -1437,13 +1458,6 @@ useEffect(() => {
     <DialogContent className="max-w-xl">
       <DialogHeader className="flex flex-row items-center justify-between">
         <DialogTitle>Profile</DialogTitle>
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-foreground"
-          onClick={() => setShowProfileModal(false)}
-        >
-          <X className="h-4 w-4" />
-        </button>
       </DialogHeader>
       <div className="space-y-4">
         <div className="flex items-center gap-4">
@@ -1453,14 +1467,7 @@ useEffect(() => {
             className="relative"
             disabled={avatarUploading}
           >
-            <Avatar className="h-16 w-16">
-              {profileImage ? (
-                <AvatarImage src={profileImage} alt={profileName} />
-              ) : null}
-              <AvatarFallback className="bg-muted text-foreground text-lg">
-                {getInitials(profileName)}
-              </AvatarFallback>
-            </Avatar>
+            <UserAvatar src={profileImage} name={profileName} className="h-16 w-16" />
             {avatarUploading && (
               <div className="absolute inset-0 rounded-full bg-black/30 flex items-center justify-center text-xs text-white">
                 Uploading...
@@ -1506,7 +1513,7 @@ useEffect(() => {
             placeholder="https://..."
           />
           <div className="flex gap-2">
-            <Button
+              <Button
               className="flex-1"
               onClick={async () => {
                 if (!profileName.trim()) {
@@ -1543,6 +1550,35 @@ useEffect(() => {
               }}
             >
               Save
+            </Button>
+            <Button
+              variant="ghost"
+              className="flex-none"
+              onClick={async () => {
+                try {
+                  setProfileImage("");
+                  const res = await fetch("/api/users/me", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      image: null,
+                      name: profileName.trim(),
+                      email: profileEmail.trim(),
+                    }),
+                  });
+                  if (res.ok) {
+                    toast.success("Avatar removed");
+                    fetchProfile();
+                    fetchUsers();
+                  } else {
+                    toast.error("Failed to remove avatar");
+                  }
+                } catch {
+                  toast.error("Failed to remove avatar");
+                }
+              }}
+            >
+              Remove photo
             </Button>
           </div>
         </div>
@@ -2002,7 +2038,14 @@ function SortableTaskRow({
             <div className="flex items-center gap-2.5">
               <Avatar className="h-6 w-6 shrink-0">
                 {assigneeImage ? (
-                  <AvatarImage src={assigneeImage} alt={assignee?.name} />
+                  <AvatarImage
+                    src={assigneeImage}
+                    alt={assignee?.name}
+                    className="object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = "";
+                    }}
+                  />
                 ) : null}
                 <AvatarFallback className="bg-muted text-foreground text-[10px]">
                   {assignee ? getInitials(assignee.name) : "?"}
@@ -2014,17 +2057,26 @@ function SortableTaskRow({
             </div>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="unassigned">Unassigned</SelectItem>
-            {users.map((u) => (
-              <SelectItem key={u.id} value={u.id}>
-                <div className="flex items-center gap-2.5">
-                  <Avatar className="h-6 w-6">
-                    {u.image ? <AvatarImage src={u.image} alt={u.name} /> : null}
-                    <AvatarFallback className="bg-muted text-foreground text-[10px]">
-                      {getInitials(u.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span>{u.name}</span>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    <div className="flex items-center gap-2.5">
+                      <Avatar className="h-6 w-6">
+                        {u.image ? (
+                          <AvatarImage
+                            src={u.image}
+                            alt={u.name}
+                            className="object-cover"
+                            onError={(e) => {
+                              e.currentTarget.src = "";
+                            }}
+                          />
+                        ) : null}
+                        <AvatarFallback className="bg-muted text-foreground text-[10px]">
+                          {getInitials(u.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span>{u.name}</span>
                 </div>
               </SelectItem>
             ))}
