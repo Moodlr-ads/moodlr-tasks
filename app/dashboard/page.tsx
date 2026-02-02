@@ -1592,9 +1592,15 @@ useEffect(() => {
                   });
                   if (res.ok) {
                     const updated = await res.json();
+                    const newImage =
+                      profileImage?.trim() && updated?.image
+                        ? updated.image
+                        : profileImage?.trim()
+                          ? profileImage.trim()
+                          : "";
                     const snap = {
                       id: updated?.id || profileId,
-                      image: updated?.image || "",
+                      image: newImage,
                       name: updated?.name || profileName,
                       email: updated?.email || profileEmail,
                     };
@@ -1647,8 +1653,8 @@ useEffect(() => {
             <Button
               variant="ghost"
               className="flex-none"
-              onClick={async () => {
-                // apenas draft/local: não persiste
+              onClick={() => {
+                // apenas draft/local: não persiste até salvar
                 setProfileImage("");
                 setProfileDirty(true);
               }}
