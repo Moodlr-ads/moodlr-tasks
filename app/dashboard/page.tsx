@@ -320,6 +320,7 @@ export default function DashboardPage() {
     fetchUsers();
   }, [fetchUsers]);
 
+  const [profileId, setProfileId] = useState<string | null>(null);
   const [profileImage, setProfileImage] = useState("");
   const [profileName, setProfileName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
@@ -335,6 +336,7 @@ export default function DashboardPage() {
       const res = await fetch("/api/users/me");
       if (res.ok) {
         const data = await res.json();
+        setProfileId(data?.id || null);
         setProfileImage(data?.image || "");
         setProfileName(data?.name || "");
         setProfileEmail(data?.email || "");
@@ -1514,7 +1516,7 @@ useEffect(() => {
             placeholder="https://..."
           />
           <div className="flex gap-2">
-              <Button
+            <Button
               className="flex-1"
               onClick={async () => {
                 if (!profileName.trim()) {
@@ -1533,7 +1535,7 @@ useEffect(() => {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      image: profileImage || "",
+                      image: profileImage?.trim() ? profileImage.trim() : null,
                       name: profileName.trim(),
                       email: profileEmail.trim(),
                     }),
@@ -1556,13 +1558,26 @@ useEffect(() => {
               variant="ghost"
               className="flex-none"
               onClick={async () => {
+                const previousImage = profileImage;
+                setProfileImage("");
+                setUsers((prev) =>
+                  prev.map((u) =>
+                    profileId && u.id === profileId ? { ...u, image: null } : u,
+                  ),
+                );
+                setTasks((prev) =>
+                  prev.map((t) =>
+                    t.assignee && profileId && t.assignee.id === profileId
+                      ? { ...t, assignee: { ...t.assignee, image: null } }
+                      : t,
+                  ),
+                );
                 try {
-                  setProfileImage("");
                   const res = await fetch("/api/users/me", {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      image: "",
+                      image: null,
                       name: profileName.trim(),
                       email: profileEmail.trim(),
                     }),
@@ -1572,9 +1587,11 @@ useEffect(() => {
                     fetchProfile();
                     fetchUsers();
                   } else {
+                    setProfileImage(previousImage);
                     toast.error("Failed to remove avatar");
                   }
                 } catch {
+                  setProfileImage(previousImage);
                   toast.error("Failed to remove avatar");
                 }
               }}
