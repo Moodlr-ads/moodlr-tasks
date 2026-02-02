@@ -1623,6 +1623,7 @@ useEffect(() => {
                           : t,
                       ),
                     );
+                    fetchUsers();
                     toast.success("Profile saved");
                     setShowProfileModal(false);
                   } else {
