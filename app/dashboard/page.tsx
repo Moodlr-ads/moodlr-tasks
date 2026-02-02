@@ -324,6 +324,12 @@ export default function DashboardPage() {
   const [profileImage, setProfileImage] = useState("");
   const [profileName, setProfileName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
+  const profileSnapshot = useRef<{
+    id: string | null;
+    image: string;
+    name: string;
+    email: string;
+  }>({ id: null, image: "", name: "", email: "" });
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -336,10 +342,17 @@ export default function DashboardPage() {
       const res = await fetch("/api/users/me");
       if (res.ok) {
         const data = await res.json();
-        setProfileId(data?.id || null);
-        setProfileImage(data?.image || "");
-        setProfileName(data?.name || "");
-        setProfileEmail(data?.email || "");
+        const snap = {
+          id: data?.id || null,
+          image: data?.image || "",
+          name: data?.name || "",
+          email: data?.email || "",
+        };
+        profileSnapshot.current = snap;
+        setProfileId(snap.id);
+        setProfileImage(snap.image);
+        setProfileName(snap.name);
+        setProfileEmail(snap.email);
       }
     } catch {
       // ignore
@@ -365,19 +378,9 @@ useEffect(() => {
       }
       const data = await res.json();
       const imageUrl = data.imageUrl as string;
+      // Apenas prepara draft; salvar acontece no botão Save
       setProfileImage(imageUrl);
-
-      const saveRes = await fetch("/api/users/me", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: imageUrl }),
-      });
-      if (saveRes.ok) {
-        toast.success("Avatar updated");
-        fetchUsers();
-      } else {
-        toast.error("Failed to save avatar");
-      }
+      toast.success("Photo uploaded. Click Save to apply.");
     } catch {
       toast.error("Upload failed");
     } finally {
@@ -1457,7 +1460,27 @@ useEffect(() => {
       </main>
 
   {/* Profile Modal */}
-  <Dialog open={showProfileModal} onOpenChange={setShowProfileModal}>
+  <Dialog
+    open={showProfileModal}
+    onOpenChange={(open) => {
+      setShowProfileModal(open);
+      if (open) {
+        // reset form to snapshot when opening
+        const snap = profileSnapshot.current;
+        setProfileId(snap.id);
+        setProfileImage(snap.image);
+        setProfileName(snap.name);
+        setProfileEmail(snap.email);
+      } else {
+        // discard unsaved changes on close
+        const snap = profileSnapshot.current;
+        setProfileId(snap.id);
+        setProfileImage(snap.image);
+        setProfileName(snap.name);
+        setProfileEmail(snap.email);
+      }
+    }}
+  >
     <DialogContent className="max-w-xl">
       <DialogHeader className="flex flex-row items-center justify-between">
         <DialogTitle>Profile</DialogTitle>
@@ -1523,12 +1546,16 @@ useEffect(() => {
                   toast.error("Name is required");
                   return;
                 }
-                if (
-                  profileEmail &&
-                  !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(profileEmail)
-                ) {
-                  toast.error("Invalid email");
-                  return;
+                const emailDraft = profileEmail.trim();
+                const emailChanged =
+                  emailDraft.toLowerCase() !==
+                  (profileSnapshot.current.email || "").trim().toLowerCase();
+                if (emailChanged) {
+                  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/i;
+                  if (!emailRegex.test(emailDraft)) {
+                    toast.error("Invalid email");
+                    return;
+                  }
                 }
                 try {
                   const res = await fetch("/api/users/me", {
@@ -1541,9 +1568,31 @@ useEffect(() => {
                     }),
                   });
                   if (res.ok) {
+                    const updated = await res.json();
+                    const snap = {
+                      id: updated?.id || profileId,
+                      image: updated?.image || "",
+                      name: updated?.name || profileName,
+                      email: updated?.email || profileEmail,
+                    };
+                    profileSnapshot.current = snap;
+                    setProfileId(snap.id);
+                    setProfileImage(snap.image);
+                    setProfileName(snap.name);
+                    setProfileEmail(snap.email);
+                    setUsers((prev) =>
+                      prev.map((u) =>
+                        snap.id && u.id === snap.id ? { ...u, image: snap.image, name: snap.name, email: snap.email } : u,
+                      ),
+                    );
+                    setTasks((prev) =>
+                      prev.map((t) =>
+                        t.assignee && snap.id && t.assignee.id === snap.id
+                          ? { ...t, assignee: { ...t.assignee, image: snap.image, name: snap.name, email: snap.email } }
+                          : t,
+                      ),
+                    );
                     toast.success("Profile saved");
-                    fetchProfile();
-                    fetchUsers();
                   } else {
                     toast.error("Failed to save profile");
                   }
@@ -1559,6 +1608,9 @@ useEffect(() => {
               className="flex-none"
               onClick={async () => {
                 const previousImage = profileImage;
+                const previousUsers = users;
+                const previousTasks = tasks;
+                // optimistic: clear immediately
                 setProfileImage("");
                 setUsers((prev) =>
                   prev.map((u) =>
@@ -1584,14 +1636,16 @@ useEffect(() => {
                   });
                   if (res.ok) {
                     toast.success("Avatar removed");
-                    fetchProfile();
-                    fetchUsers();
                   } else {
                     setProfileImage(previousImage);
+                    setUsers(previousUsers);
+                    setTasks(previousTasks);
                     toast.error("Failed to remove avatar");
                   }
                 } catch {
                   setProfileImage(previousImage);
+                  setUsers(previousUsers);
+                  setTasks(previousTasks);
                   toast.error("Failed to remove avatar");
                 }
               }}
@@ -1966,7 +2020,9 @@ function SortableTaskRow({
   const priority = priorityConfig[task.priority];
   const group = groups.find((g) => g.id === task.groupId);
   const status = statuses.find((s) => s.id === task.statusId);
-  const assignee = task.assignee;
+  const assignee =
+    task.assignee ||
+    (task.assigneeId ? users.find((u) => u.id === task.assigneeId) : null);
   const assigneeImage = (assignee as any)?.image as string | undefined;
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -2054,10 +2110,23 @@ function SortableTaskRow({
         >
           <SelectTrigger className="w-full max-w-[220px] h-10 px-3 min-w-0">
             <div className="flex items-center gap-2.5">
-              <UserAvatar src={assigneeImage} name={assignee?.name} />
-              <span className="text-sm text-foreground truncate">
-                {assignee ? assignee.name : "Unassigned"}
-              </span>
+              {assignee ? (
+                <>
+                  <UserAvatar src={assigneeImage} name={assignee?.name} />
+                  <span className="text-sm text-foreground truncate">
+                    {assignee.name}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Avatar className="h-6 w-6 shrink-0">
+                    <AvatarFallback className="bg-muted text-foreground text-[10px]">
+                      ?
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm text-foreground truncate">Unassigned</span>
+                </>
+              )}
             </div>
           </SelectTrigger>
           <SelectContent>
