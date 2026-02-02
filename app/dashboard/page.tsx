@@ -169,7 +169,7 @@ const UserAvatar = ({
           onError={() => setErrored(true)}
         />
       ) : null}
-      <AvatarFallback className="bg-muted text-foreground text-[10px]">
+      <AvatarFallback className="bg-muted text-foreground text-[10px] font-semibold uppercase">
         {name ? getInitials(name) : "?"}
       </AvatarFallback>
     </Avatar>
