@@ -320,15 +320,16 @@ export default function DashboardPage() {
     fetchUsers();
   }, [fetchUsers]);
 
-  const [profileId, setProfileId] = useState<string | null>(null);
-  const [profileImage, setProfileImage] = useState("");
-  const [profileName, setProfileName] = useState("");
-  const [profileEmail, setProfileEmail] = useState("");
-  const profileSnapshot = useRef<{
-    id: string | null;
-    image: string;
-    name: string;
-    email: string;
+const [profileId, setProfileId] = useState<string | null>(null);
+const [profileImage, setProfileImage] = useState("");
+const [profileName, setProfileName] = useState("");
+const [profileEmail, setProfileEmail] = useState("");
+const [profileDirty, setProfileDirty] = useState(false);
+const profileSnapshot = useRef<{
+  id: string | null;
+  image: string;
+  name: string;
+  email: string;
   }>({ id: null, image: "", name: "", email: "" });
 
 const isValidEmail = (email: string) => {
@@ -349,22 +350,23 @@ const isValidEmail = (email: string) => {
       const res = await fetch("/api/users/me");
       if (res.ok) {
         const data = await res.json();
-        const snap = {
-          id: data?.id || null,
-          image: data?.image || "",
-          name: data?.name || "",
-          email: data?.email || "",
-        };
-        profileSnapshot.current = snap;
-        setProfileId(snap.id);
-        setProfileImage(snap.image);
-        setProfileName(snap.name);
-        setProfileEmail(snap.email);
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
+    const snap = {
+      id: data?.id || null,
+      image: data?.image || "",
+      name: data?.name || "",
+      email: data?.email || "",
+    };
+    profileSnapshot.current = snap;
+    setProfileId(snap.id);
+    setProfileImage(snap.image);
+    setProfileName(snap.name);
+    setProfileEmail(snap.email);
+    setProfileDirty(false);
+  }
+} catch {
+  // ignore
+}
+}, []);
 
 useEffect(() => {
   fetchProfile();
@@ -1467,27 +1469,29 @@ useEffect(() => {
       </main>
 
   {/* Profile Modal */}
-  <Dialog
-    open={showProfileModal}
-    onOpenChange={(open) => {
-      setShowProfileModal(open);
-      if (open) {
-        // reset form to snapshot when opening
-        const snap = profileSnapshot.current;
-        setProfileId(snap.id);
-        setProfileImage(snap.image);
-        setProfileName(snap.name);
-        setProfileEmail(snap.email);
-      } else {
-        // discard unsaved changes on close
-        const snap = profileSnapshot.current;
-        setProfileId(snap.id);
-        setProfileImage(snap.image);
-        setProfileName(snap.name);
-        setProfileEmail(snap.email);
-      }
-    }}
-  >
+<Dialog
+  open={showProfileModal}
+  onOpenChange={(open) => {
+    setShowProfileModal(open);
+    if (open) {
+      // reset form to snapshot when opening
+      const snap = profileSnapshot.current;
+      setProfileId(snap.id);
+      setProfileImage(snap.image);
+      setProfileName(snap.name);
+      setProfileEmail(snap.email);
+      setProfileDirty(false);
+    } else {
+      // discard unsaved changes on close
+      const snap = profileSnapshot.current;
+      setProfileId(snap.id);
+      setProfileImage(snap.image);
+      setProfileName(snap.name);
+      setProfileEmail(snap.email);
+      setProfileDirty(false);
+    }
+  }}
+>
     <DialogContent className="max-w-xl">
       <DialogHeader className="flex flex-row items-center justify-between">
         <DialogTitle>Profile</DialogTitle>
@@ -1542,7 +1546,10 @@ useEffect(() => {
           <Label>Avatar URL (optional)</Label>
           <Input
             value={profileImage}
-            onChange={(e) => setProfileImage(e.target.value)}
+            onChange={(e) => {
+              setProfileImage(e.target.value);
+              setProfileDirty(true);
+            }}
             placeholder="https://..."
           />
           <div className="flex gap-2">
@@ -1559,6 +1566,10 @@ useEffect(() => {
                   (profileSnapshot.current.email || "").trim().toLowerCase();
                 if (emailChanged && !isValidEmail(emailDraft)) {
                   toast.error("Invalid email");
+                  return;
+                }
+                if (!profileDirty) {
+                  setShowProfileModal(false);
                   return;
                 }
                 try {
@@ -1584,6 +1595,7 @@ useEffect(() => {
                     setProfileImage(snap.image);
                     setProfileName(snap.name);
                     setProfileEmail(snap.email);
+                    setProfileDirty(false);
                     setUsers((prev) =>
                       prev.map((u) =>
                         snap.id && u.id === snap.id
@@ -1627,90 +1639,9 @@ useEffect(() => {
               variant="ghost"
               className="flex-none"
               onClick={async () => {
-                const prevSnap = profileSnapshot.current;
-                const previousImage = profileImage;
-                const previousUsers = users;
-                const previousTasks = tasks;
-                // otimista: limpa imediatamente
+                // apenas draft/local: não persiste
                 setProfileImage("");
-                profileSnapshot.current = {
-                  ...prevSnap,
-                  image: "",
-                };
-                setUsers((prev) =>
-                  prev.map((u) =>
-                    prevSnap.id && u.id === prevSnap.id
-                      ? { ...u, image: null }
-                      : u,
-                  ),
-                );
-                setTasks((prev) =>
-                  prev.map((t) =>
-                    t.assignee && prevSnap.id && t.assignee.id === prevSnap.id
-                      ? { ...t, assignee: { ...t.assignee, image: null } }
-                      : t,
-                  ),
-                );
-                try {
-                  const res = await fetch("/api/users/me", {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      image: "",
-                      name: profileName.trim(),
-                      email: profileEmail.trim(),
-                    }),
-                  });
-                  if (res.ok) {
-                    const updated = await res.json().catch(() => null);
-                    const nextImage = ""; // force removal even se a API devolver valor antigo
-                    profileSnapshot.current = {
-                      id: updated?.id || prevSnap.id,
-                      image: nextImage,
-                      name: updated?.name || profileName,
-                      email: updated?.email || profileEmail,
-                    };
-                    setProfileImage(nextImage);
-                    setUsers((prev) =>
-                      prev.map((u) =>
-                        profileSnapshot.current.id &&
-                        u.id === profileSnapshot.current.id
-                          ? { ...u, image: profileSnapshot.current.image || null }
-                          : u,
-                      ),
-                    );
-                    setTasks((prev) =>
-                      prev.map((t) =>
-                        t.assignee &&
-                        profileSnapshot.current.id &&
-                        t.assignee.id === profileSnapshot.current.id
-                          ? {
-                              ...t,
-                              assignee: {
-                                ...t.assignee,
-                                image: profileSnapshot.current.image || null,
-                              },
-                            }
-                          : t,
-                      ),
-                    );
-                    fetchUsers();
-                    toast.success("Avatar removed");
-                  } else {
-                    // rollback
-                    profileSnapshot.current = prevSnap;
-                    setProfileImage(previousImage);
-                    setUsers(previousUsers);
-                    setTasks(previousTasks);
-                    toast.error("Failed to remove avatar");
-                  }
-                } catch {
-                  profileSnapshot.current = prevSnap;
-                  setProfileImage(previousImage);
-                  setUsers(previousUsers);
-                  setTasks(previousTasks);
-                  toast.error("Failed to remove avatar");
-                }
+                setProfileDirty(true);
               }}
             >
               Remove photo
