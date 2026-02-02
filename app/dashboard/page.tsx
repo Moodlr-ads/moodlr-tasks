@@ -1656,20 +1656,21 @@ useEffect(() => {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      image: null,
+                      image: "",
                       name: profileName.trim(),
                       email: profileEmail.trim(),
                     }),
                   });
                   if (res.ok) {
-                    const updated = await res.json();
+                    const updated = await res.json().catch(() => null);
+                    const nextImage = ""; // force removal even se a API devolver valor antigo
                     profileSnapshot.current = {
                       id: updated?.id || prevSnap.id,
-                      image: updated?.image || "",
+                      image: nextImage,
                       name: updated?.name || profileName,
                       email: updated?.email || profileEmail,
                     };
-                    setProfileImage(profileSnapshot.current.image);
+                    setProfileImage(nextImage);
                     setUsers((prev) =>
                       prev.map((u) =>
                         profileSnapshot.current.id &&
