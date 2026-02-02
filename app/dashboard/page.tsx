@@ -331,12 +331,12 @@ export default function DashboardPage() {
     email: string;
   }>({ id: null, image: "", name: "", email: "" });
 
-  const isValidEmail = (email: string) => {
-    const trimmed = email.trim();
-    if (!trimmed) return false;
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
-    return emailRegex.test(trimmed);
-  };
+const isValidEmail = (email: string) => {
+  const trimmed = email.trim();
+  if (!trimmed) return false;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+  return emailRegex.test(trimmed);
+};
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -1627,7 +1627,89 @@ useEffect(() => {
               variant="ghost"
               className="flex-none"
               onClick={async () => {
+                const prevSnap = profileSnapshot.current;
+                const previousImage = profileImage;
+                const previousUsers = users;
+                const previousTasks = tasks;
+                // otimista: limpa imediatamente
                 setProfileImage("");
+                profileSnapshot.current = {
+                  ...prevSnap,
+                  image: "",
+                };
+                setUsers((prev) =>
+                  prev.map((u) =>
+                    prevSnap.id && u.id === prevSnap.id
+                      ? { ...u, image: null }
+                      : u,
+                  ),
+                );
+                setTasks((prev) =>
+                  prev.map((t) =>
+                    t.assignee && prevSnap.id && t.assignee.id === prevSnap.id
+                      ? { ...t, assignee: { ...t.assignee, image: null } }
+                      : t,
+                  ),
+                );
+                try {
+                  const res = await fetch("/api/users/me", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      image: null,
+                      name: profileName.trim(),
+                      email: profileEmail.trim(),
+                    }),
+                  });
+                  if (res.ok) {
+                    const updated = await res.json();
+                    profileSnapshot.current = {
+                      id: updated?.id || prevSnap.id,
+                      image: updated?.image || "",
+                      name: updated?.name || profileName,
+                      email: updated?.email || profileEmail,
+                    };
+                    setProfileImage(profileSnapshot.current.image);
+                    setUsers((prev) =>
+                      prev.map((u) =>
+                        profileSnapshot.current.id &&
+                        u.id === profileSnapshot.current.id
+                          ? { ...u, image: profileSnapshot.current.image || null }
+                          : u,
+                      ),
+                    );
+                    setTasks((prev) =>
+                      prev.map((t) =>
+                        t.assignee &&
+                        profileSnapshot.current.id &&
+                        t.assignee.id === profileSnapshot.current.id
+                          ? {
+                              ...t,
+                              assignee: {
+                                ...t.assignee,
+                                image: profileSnapshot.current.image || null,
+                              },
+                            }
+                          : t,
+                      ),
+                    );
+                    fetchUsers();
+                    toast.success("Avatar removed");
+                  } else {
+                    // rollback
+                    profileSnapshot.current = prevSnap;
+                    setProfileImage(previousImage);
+                    setUsers(previousUsers);
+                    setTasks(previousTasks);
+                    toast.error("Failed to remove avatar");
+                  }
+                } catch {
+                  profileSnapshot.current = prevSnap;
+                  setProfileImage(previousImage);
+                  setUsers(previousUsers);
+                  setTasks(previousTasks);
+                  toast.error("Failed to remove avatar");
+                }
               }}
             >
               Remove photo
