@@ -5,7 +5,7 @@ import prisma from "@/lib/db";
 
 export async function PUT(req: NextRequest, context: any) {
   try {
-    const { params } = context;
+    const { id } = await context.params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -14,7 +14,7 @@ export async function PUT(req: NextRequest, context: any) {
     const { name, description, color, icon } = await req.json();
 
     const workspace = await prisma.workspace.update({
-      where: { id: params.id, ownerId: session.user.id },
+      where: { id },
       data: {
         name,
         description,
@@ -35,15 +35,23 @@ export async function PUT(req: NextRequest, context: any) {
 
 export async function DELETE(_req: NextRequest, context: any) {
   try {
-    const { params } = context;
+    const { id } = await context.params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const workspace = await prisma.workspace.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!workspace) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
     // gather boards to cascade delete related data
     const boards = await prisma.board.findMany({
-      where: { workspaceId: params.id },
+      where: { workspaceId: id },
       select: { id: true },
     });
     const boardIds = boards.map((b) => b.id);
@@ -56,7 +64,7 @@ export async function DELETE(_req: NextRequest, context: any) {
     }
 
     await prisma.workspace.delete({
-      where: { id: params.id, ownerId: session.user.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true });
