@@ -3,11 +3,35 @@ import prisma from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
-function toUtcMidday(dateStr?: string | null) {
+function parseDateInput(dateStr?: string | null) {
   if (!dateStr) return null;
   const trimmed = String(dateStr).trim();
   if (!trimmed) return null;
-  return new Date(`${trimmed}T12:00:00Z`);
+
+  // Expect "yyyy-MM-dd" or ISO; fallback to Date parse
+  const isoCandidate = /^\d{4}-\d{2}-\d{2}$/;
+  const normalized = isoCandidate.test(trimmed)
+    ? `${trimmed}T00:00:00Z`
+    : trimmed;
+
+  const d = new Date(normalized);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function toUtcMidday(dateStr?: string | null) {
+  const parsed = parseDateInput(dateStr);
+  if (!parsed) return null;
+  return new Date(
+    Date.UTC(
+      parsed.getUTCFullYear(),
+      parsed.getUTCMonth(),
+      parsed.getUTCDate(),
+      12,
+      0,
+      0,
+      0,
+    ),
+  );
 }
 
 export async function GET(req: Request) {
@@ -77,6 +101,75 @@ export async function POST(req: Request) {
       assigneeId,
     } = await req.json();
 
+    if (!boardId || typeof boardId !== "string") {
+      return NextResponse.json(
+        { error: "boardId is required" },
+        { status: 400 },
+      );
+    }
+    if (!title || typeof title !== "string") {
+      return NextResponse.json(
+        { error: "title is required" },
+        { status: 400 },
+      );
+    }
+
+    const start = toUtcMidday(startDate);
+    const due = toUtcMidday(dueDate);
+    if (start && due && start.getTime() > due.getTime()) {
+      return NextResponse.json(
+        { error: "Due date cannot be before start date" },
+        { status: 400 },
+      );
+    }
+
+    const board = await prisma.board.findUnique({
+      where: { id: boardId },
+      select: { id: true },
+    });
+    if (!board) {
+      return NextResponse.json({ error: "Board not found" }, { status: 404 });
+    }
+
+    if (statusId) {
+      const statusExists = await prisma.status.findFirst({
+        where: { id: statusId, boardId },
+        select: { id: true },
+      });
+      if (!statusExists) {
+        return NextResponse.json(
+          { error: "Invalid status for this board" },
+          { status: 400 },
+        );
+      }
+    }
+
+    if (groupId) {
+      const groupExists = await prisma.group.findFirst({
+        where: { id: groupId, boardId },
+        select: { id: true },
+      });
+      if (!groupExists) {
+        return NextResponse.json(
+          { error: "Invalid group for this board" },
+          { status: 400 },
+        );
+      }
+    }
+
+    if (assigneeId) {
+      const userExists = await prisma.user.findUnique({
+        where: { id: assigneeId },
+        select: { id: true },
+      });
+      if (!userExists) {
+        return NextResponse.json(
+          { error: "Assignee not found" },
+          { status: 400 },
+        );
+      }
+    }
+
     const existingMax = await prisma.task.aggregate({
       where: { boardId },
       _max: { order: true },
@@ -97,8 +190,8 @@ export async function POST(req: Request) {
         groupId,
         statusId,
         priority: priority || "medium",
-        startDate: toUtcMidday(startDate),
-        dueDate: toUtcMidday(dueDate),
+        startDate: start,
+        dueDate: due,
         order: nextOrder,
         assigneeId: assigneeId || null,
       },

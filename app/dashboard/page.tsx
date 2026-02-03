@@ -443,6 +443,7 @@ export default function DashboardPage() {
       "mac.com",
       "proton.me",
       "protonmail.com",
+      "moodlr.com",
       "zoho.com",
       "aol.com",
       "gmx.com",
@@ -482,6 +483,10 @@ export default function DashboardPage() {
       "yahoo.con": "yahoo.com",
       "icloud.con": "icloud.com",
       "iclod.com": "icloud.com",
+
+      // moodlr
+      "moodler.com": "moodlr.com",
+      "modlr.com": "moodlr.com",
 
       // br
       "uol.con.br": "uol.com.br",
