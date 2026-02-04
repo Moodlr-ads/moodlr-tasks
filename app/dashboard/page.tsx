@@ -202,9 +202,9 @@ const TagListSelect = ({
 
       <div className="flex items-center gap-2 text-sm">
         <span className="text-muted-foreground">
-          Selecionadas ({selectedIds.length}/{limit}):
+          Selecionadas ({uniqueSelected.length}/{limit}):
         </span>
-        {selected.length === 0 ? (
+        {uniqueSelected.length === 0 ? (
           <span className="text-muted-foreground">Nenhuma</span>
         ) : (
           <span className="text-foreground">
