@@ -3,6 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  output   = "./generated/client"
 }
 
 datasource db {
@@ -34,6 +35,7 @@ model Workspace {
   icon        String   @default("📁")
   createdAt   DateTime @default(now()) @map("created_at")
   boards      Board[]
+  tags        Tag[]
 
   @@index([ownerId])
   @@map("workspaces")
@@ -108,6 +110,7 @@ model Task {
   order       Int       @default(0)
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
+  tags        Tag[]     @relation("TaskTags")
 
   @@index([boardId])
   @@index([groupId])
@@ -116,4 +119,16 @@ model Task {
   @@index([dueDate])
   @@index([priority])
   @@map("tasks")
+}
+
+model Tag {
+  id          String    @id @default(uuid())
+  name        String
+  workspaceId String    @map("workspace_id")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  tasks       Task[]    @relation("TaskTags")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@unique([workspaceId, name])
+  @@map("tags")
 }

@@ -4,7 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "./providers";
 
 export const metadata: Metadata = {
-  title: "Moodlr Task",
+  title: "Moodlr Tasks",
   description: "Professional task management for teams",
 };
 

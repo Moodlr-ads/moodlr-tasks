@@ -3,6 +3,8 @@ import prisma from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
+type TagPayload = string[] | undefined;
+
 function parseDateInput(dateStr?: string | null) {
   if (!dateStr) return null;
   const trimmed = String(dateStr).trim();
@@ -32,6 +34,15 @@ function toUtcMidday(dateStr?: string | null) {
       0,
     ),
   );
+}
+
+async function validateTagIds(tagIds: TagPayload, workspaceId: string) {
+  if (!tagIds || !tagIds.length) return [];
+  const existing = await prisma.tag.findMany({
+    where: { id: { in: tagIds }, workspaceId },
+    select: { id: true },
+  });
+  return existing.map((t) => t.id);
 }
 
 export async function GET(req: Request) {
@@ -68,6 +79,7 @@ export async function GET(req: Request) {
           // ✅ FIX: incluir image do assignee (resolve sumir no F5)
           select: { id: true, name: true, email: true, image: true },
         },
+        tags: true,
       },
     });
 
@@ -99,6 +111,7 @@ export async function POST(req: Request) {
       dueDate,
       order,
       assigneeId,
+      tagIds,
     } = await req.json();
 
     if (!boardId || typeof boardId !== "string") {
@@ -123,11 +136,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const board = await prisma.board.findUnique({
+    const boardInfo = await prisma.board.findUnique({
       where: { id: boardId },
-      select: { id: true },
+      select: { id: true, workspaceId: true },
     });
-    if (!board) {
+    if (!boardInfo) {
       return NextResponse.json({ error: "Board not found" }, { status: 404 });
     }
 
@@ -139,19 +152,6 @@ export async function POST(req: Request) {
       if (!statusExists) {
         return NextResponse.json(
           { error: "Invalid status for this board" },
-          { status: 400 },
-        );
-      }
-    }
-
-    if (groupId) {
-      const groupExists = await prisma.group.findFirst({
-        where: { id: groupId, boardId },
-        select: { id: true },
-      });
-      if (!groupExists) {
-        return NextResponse.json(
-          { error: "Invalid group for this board" },
           { status: 400 },
         );
       }
@@ -182,6 +182,8 @@ export async function POST(req: Request) {
           ? existingMax._max.order + 1
           : 0;
 
+    const sanitizedTagIds = await validateTagIds(tagIds, boardInfo.workspaceId);
+
     const task = await prisma.task.create({
       data: {
         title,
@@ -194,12 +196,17 @@ export async function POST(req: Request) {
         dueDate: due,
         order: nextOrder,
         assigneeId: assigneeId || null,
+        tags:
+          sanitizedTagIds.length > 0
+            ? { connect: sanitizedTagIds.map((id: string) => ({ id })) }
+            : undefined,
       },
       include: {
         assignee: {
           // ✅ FIX: incluir image do assignee (mantém consistente ao criar)
           select: { id: true, name: true, email: true, image: true },
         },
+        tags: true,
       },
     });
 

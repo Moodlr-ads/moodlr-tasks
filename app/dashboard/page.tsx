@@ -83,6 +83,7 @@ import {
   type CSSProperties,
 } from "react";
 import { toast } from "sonner";
+import { Check } from "lucide-react";
 
 // Types
 interface Workspace {
@@ -112,13 +113,6 @@ interface Status {
   order: number;
 }
 
-interface Group {
-  id: string;
-  boardId: string;
-  name: string;
-  order: number;
-}
-
 interface User {
   id: string;
   name: string;
@@ -126,10 +120,16 @@ interface User {
   image?: string | null;
 }
 
+interface Tag {
+  id: string;
+  name: string;
+  workspaceId: string;
+  createdAt: string;
+}
+
 interface Task {
   id: string;
   boardId: string;
-  groupId: string | null;
   title: string;
   description: string | null;
   statusId: string | null;
@@ -139,7 +139,20 @@ interface Task {
   order: number;
   assigneeId?: string | null;
   assignee?: User | null;
+  tags?: Tag[];
 }
+
+type TagListSelectProps = {
+  tags: Tag[];
+  selectedIds: string[];
+  onRemove: (id: string) => void;
+  limit: number;
+  newTagName: string;
+  onNewTagNameChange: (v: string) => void;
+  onCreate: () => void;
+};
+
+const TAG_LIMIT = 5;
 
 const priorityConfig: Record<string, { label: string; color: string }> = {
   low: { label: "Low", color: "#22c55e" },
@@ -166,6 +179,96 @@ const emojiOptions = [
   "🛒",
   "🏗️",
 ];
+
+const TagListSelect = ({
+  tags,
+  selectedIds,
+  onRemove,
+  limit,
+  newTagName,
+  onNewTagNameChange,
+  onCreate,
+}: TagListSelectProps) => {
+  const reachedLimit = selectedIds.length >= limit;
+  const selected = tags.filter((t) => selectedIds.includes(t.id));
+  const [removeTarget, setRemoveTarget] = useState("");
+
+  return (
+    <div className="space-y-3">
+      <Label>Tags</Label>
+
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground">
+          Selecionadas ({selectedIds.length}/{limit}):
+        </span>
+        {selected.length === 0 ? (
+          <span className="text-muted-foreground">Nenhuma</span>
+        ) : (
+          <span className="text-foreground">
+            {selected.map((t) => t.name).join(", ")}
+          </span>
+        )}
+      </div>
+
+      <div className="space-y-1">
+        <Label className="text-[12px] text-muted-foreground">Remover</Label>
+        <div className="flex gap-2">
+          <Select
+            value={removeTarget}
+            onValueChange={(val) => setRemoveTarget(val === "__none" ? "" : val)}
+          >
+            <SelectTrigger className="flex-1">
+              <SelectValue placeholder="Escolher tag" />
+            </SelectTrigger>
+            <SelectContent>
+              {selected.length === 0 ? (
+                <SelectItem value="__none" disabled>
+                  Nenhuma selecionada
+                </SelectItem>
+              ) : (
+                selected.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!removeTarget}
+            onClick={() => {
+              if (!removeTarget) return;
+              onRemove(removeTarget);
+              setRemoveTarget("");
+            }}
+          >
+            Remove
+          </Button>
+        </div>
+      </div>
+
+      {reachedLimit && (
+        <p className="text-xs text-muted-foreground">
+          Máximo de {limit} tags por task.
+        </p>
+      )}
+
+      <div className="flex gap-2 items-center">
+        <Input
+          value={newTagName}
+          onChange={(e) => onNewTagNameChange(e.target.value)}
+          placeholder="New tag name"
+          className="flex-1"
+        />
+        <Button type="button" onClick={onCreate} className="h-10 px-4">
+          Add
+        </Button>
+      </div>
+    </div>
+  );
+};
 
 const UserAvatar = ({
   src,
@@ -208,8 +311,8 @@ const UserAvatar = ({
 };
 
 const TASK_GRID =
-  "grid gap-x-3 gap-y-3 grid-cols-[minmax(260px,1.5fr)_150px_110px_150px_200px_140px_140px_60px] items-center";
-const TABLE_MIN_WIDTH = "min-w-[1200px] xl:min-w-[1250px]";
+  "grid gap-x-3 gap-y-3 grid-cols-[minmax(260px,1.5fr)_150px_110px_220px_180px_140px_140px_60px] items-center";
+const TABLE_MIN_WIDTH = "min-w-[1250px] xl:min-w-[1350px]";
 
 export default function DashboardPage() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -219,7 +322,8 @@ export default function DashboardPage() {
   );
   const [selectedBoard, setSelectedBoard] = useState<Board | null>(null);
   const [statuses, setStatuses] = useState<Status[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [newTagName, setNewTagName] = useState("");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -249,7 +353,7 @@ export default function DashboardPage() {
   const [newTaskDesc, setNewTaskDesc] = useState("");
   const [newTaskPriority, setNewTaskPriority] = useState("medium");
   const [newTaskStatusId, setNewTaskStatusId] = useState("");
-  const [newTaskGroupId, setNewTaskGroupId] = useState("");
+  const [newTaskTagIds, setNewTaskTagIds] = useState<string[]>([]);
   const [newTaskAssigneeId, setNewTaskAssigneeId] = useState("unassigned");
   const [newTaskDueDate, setNewTaskDueDate] = useState("");
   const [newTaskStartDate, setNewTaskStartDate] = useState("");
@@ -258,7 +362,7 @@ export default function DashboardPage() {
   const [editTaskDesc, setEditTaskDesc] = useState("");
   const [editTaskStatusId, setEditTaskStatusId] = useState("");
   const [editTaskPriority, setEditTaskPriority] = useState<Task["priority"]>("medium");
-  const [editTaskGroupId, setEditTaskGroupId] = useState("none");
+  const [editTaskTagIds, setEditTaskTagIds] = useState<string[]>([]);
   const [editTaskAssigneeId, setEditTaskAssigneeId] = useState("unassigned");
   const [editTaskStartDate, setEditTaskStartDate] = useState("");
   const [editTaskDueDate, setEditTaskDueDate] = useState("");
@@ -279,6 +383,29 @@ export default function DashboardPage() {
       },
     }),
   );
+
+  const toggleNewTagSelection = (id: string) => {
+    setTagSelection("new", id);
+  };
+
+  const toggleEditTagSelection = (id: string) => {
+    setTagSelection("edit", id);
+  };
+
+  const setTagSelection = (mode: "new" | "edit", id: string) => {
+    const current = mode === "new" ? newTaskTagIds : editTaskTagIds;
+    const updater = mode === "new" ? setNewTaskTagIds : setEditTaskTagIds;
+    const isSelected = current.includes(id);
+
+    if (!isSelected && current.length >= TAG_LIMIT) {
+      toast.error(`You can add up to ${TAG_LIMIT} tags per task.`);
+      return;
+    }
+
+    updater((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id],
+    );
+  };
 
   // Fetch workspaces
   const fetchWorkspaces = useCallback(async () => {
@@ -329,22 +456,59 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // Fetch board data (statuses, groups, tasks)
-  const fetchBoardData = useCallback(async (boardId: string) => {
+  // Fetch board data (statuses, tags, tasks)
+  const fetchBoardData = useCallback(async (boardId: string, workspaceId?: string) => {
     try {
-      const [statusRes, groupRes, taskRes] = await Promise.all([
+      const [statusRes, taskRes] = await Promise.all([
         fetch(`/api/statuses?board_id=${boardId}`),
-        fetch(`/api/groups?board_id=${boardId}`),
         fetch(`/api/tasks?board_id=${boardId}`),
       ]);
 
       if (statusRes.ok) setStatuses(await statusRes.json());
-      if (groupRes.ok) setGroups(await groupRes.json());
+      if (workspaceId) {
+        const tagRes = await fetch(`/api/tags?workspace_id=${workspaceId}`);
+        if (tagRes.ok) setTags(await tagRes.json());
+        else setTags([]);
+      } else {
+        setTags([]);
+      }
       if (taskRes.ok) setTasks(await taskRes.json());
     } catch {
       toast.error("Failed to load board data");
     }
   }, []);
+
+  const handleCreateTag = useCallback(async () => {
+    if (!selectedWorkspace || !newTagName.trim()) return;
+    try {
+      const res = await fetch("/api/tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newTagName.trim(),
+          workspaceId: selectedWorkspace.id,
+        }),
+      });
+      if (res.ok) {
+        const tag = await res.json();
+        setTags((prev) => [...prev, tag]);
+        const currentSelected = editingTask ? editTaskTagIds : newTaskTagIds;
+        if (currentSelected.length >= TAG_LIMIT) {
+          toast.warning(`Tag created, but limit of ${TAG_LIMIT} tags reached.`);
+        } else {
+          const selectFn = editingTask ? setEditTaskTagIds : setNewTaskTagIds;
+          selectFn((prev) => (prev.includes(tag.id) ? prev : [...prev, tag.id]));
+        }
+        setNewTagName("");
+        toast.success("Tag created");
+      } else {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error || "Failed to create tag");
+      }
+    } catch {
+      toast.error("Failed to create tag");
+    }
+  }, [newTagName, selectedWorkspace]);
 
   useEffect(() => {
     fetchWorkspaces();
@@ -713,9 +877,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (selectedBoard) {
-      fetchBoardData(selectedBoard.id);
+      fetchBoardData(selectedBoard.id, selectedWorkspace?.id);
     }
-  }, [selectedBoard, fetchBoardData]);
+  }, [selectedBoard, selectedWorkspace?.id, fetchBoardData]);
 
   // Create workspace
   const handleCreateWorkspace = async () => {
@@ -788,7 +952,7 @@ export default function DashboardPage() {
           setSelectedBoard(null);
           setBoards([]);
           setStatuses([]);
-          setGroups([]);
+          setTags([]);
           setTasks([]);
         }
         toast.success("Workspace deleted");
@@ -832,7 +996,7 @@ export default function DashboardPage() {
         if (selectedBoard?.id === boardId) {
           setSelectedBoard(null);
           setStatuses([]);
-          setGroups([]);
+          setTags([]);
           setTasks([]);
         }
         toast.success("Board deleted");
@@ -944,26 +1108,27 @@ export default function DashboardPage() {
           description: newTaskDesc || null,
           priority: newTaskPriority,
           statusId: newTaskStatusId || null,
-          groupId: newTaskGroupId || null,
+          groupId: null,
           assigneeId:
             newTaskAssigneeId === "unassigned" ? null : newTaskAssigneeId,
           startDate: newTaskStartDate || null,
           dueDate: newTaskDueDate || null,
+          tagIds: newTaskTagIds.slice(0, TAG_LIMIT),
         }),
       });
-      if (res.ok) {
-        const task = await res.json();
-        setTasks((prev) => [...prev, task]);
-        setNewTaskTitle("");
-        setNewTaskDesc("");
-        setNewTaskPriority("medium");
-        setNewTaskStatusId("");
-        setNewTaskGroupId("");
-        setNewTaskAssigneeId("unassigned");
-        setNewTaskDueDate("");
-        setNewTaskStartDate("");
-        setShowNewTask(false);
-        toast.success("Task created");
+    if (res.ok) {
+      const task = await res.json();
+      setTasks((prev) => [...prev, task]);
+      setNewTaskTitle("");
+      setNewTaskDesc("");
+      setNewTaskPriority("medium");
+      setNewTaskStatusId("");
+      setNewTaskTagIds([]);
+      setNewTaskAssigneeId("unassigned");
+      setNewTaskDueDate("");
+      setNewTaskStartDate("");
+      setShowNewTask(false);
+      toast.success("Task created");
       }
     } catch {
       toast.error("Failed to create task");
@@ -1085,7 +1250,7 @@ export default function DashboardPage() {
     setEditTaskDesc(task.description || "");
     setEditTaskStatusId(task.statusId || "");
     setEditTaskPriority(task.priority);
-    setEditTaskGroupId(task.groupId || "none");
+    setEditTaskTagIds(task.tags?.map((t) => t.id).slice(0, TAG_LIMIT) || []);
     setEditTaskAssigneeId(task.assigneeId || "unassigned");
     setEditTaskStartDate(formatDateValue(task.startDate) || "");
     setEditTaskDueDate(formatDateValue(task.dueDate) || "");
@@ -1114,7 +1279,7 @@ export default function DashboardPage() {
           description: editTaskDesc || null,
           statusId: editTaskStatusId || null,
           priority: editTaskPriority,
-          groupId: editTaskGroupId === "none" ? null : editTaskGroupId,
+          tagIds: editTaskTagIds.slice(0, TAG_LIMIT),
           assigneeId:
             editTaskAssigneeId === "unassigned" ? null : editTaskAssigneeId,
           startDate: editTaskStartDate || null,
@@ -1201,7 +1366,7 @@ export default function DashboardPage() {
             <div className="bg-slate-900 dark:bg-transparent p-2 dark:p-0 rounded-md flex items-center justify-center">
               <Image
                 src="/moodlr-icon.png"
-                alt="Moodlr Task"
+                alt="Moodlr Tasks"
                 width={24}
                 height={24}
                 className="h-6 w-6"
@@ -1209,7 +1374,7 @@ export default function DashboardPage() {
               />
             </div>
             <span className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              Moodlr Task
+              Moodlr Tasks
             </span>
           </div>
         </div>
@@ -1600,25 +1765,17 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Group (optional)</Label>
-                <Select
-                  value={editTaskGroupId}
-                  onValueChange={setEditTaskGroupId}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select group" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {groups.map((g) => (
-                      <SelectItem key={g.id} value={g.id}>
-                        {g.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <TagListSelect
+                tags={tags}
+                selectedIds={editTaskTagIds}
+                onRemove={(id) =>
+                  setEditTaskTagIds((prev) => prev.filter((t) => t !== id))
+                }
+                limit={TAG_LIMIT}
+                newTagName={newTagName}
+                onNewTagNameChange={setNewTagName}
+                onCreate={handleCreateTag}
+              />
               <div>
                 <Label>Assignee (optional)</Label>
                 <Select
@@ -1896,26 +2053,17 @@ export default function DashboardPage() {
                         </Select>
                       </div>
                     </div>
-                    {groups.length > 0 && (
-                      <div>
-                        <Label>Group (optional)</Label>
-                        <Select
-                          value={newTaskGroupId}
-                          onValueChange={setNewTaskGroupId}
-                        >
-                          <SelectTrigger className="mt-1">
-                            <SelectValue placeholder="Select group" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {groups.map((g) => (
-                              <SelectItem key={g.id} value={g.id}>
-                                {g.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
+                <TagListSelect
+                  tags={tags}
+                  selectedIds={newTaskTagIds}
+                  onRemove={(id) =>
+                    setNewTaskTagIds((prev) => prev.filter((t) => t !== id))
+                  }
+                  limit={TAG_LIMIT}
+                  newTagName={newTagName}
+                      onNewTagNameChange={setNewTagName}
+                      onCreate={handleCreateTag}
+                    />
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <Label>Assignee (optional)</Label>
@@ -2038,19 +2186,19 @@ export default function DashboardPage() {
         </header>
 
         {/* Board Content */}
-        <div className="flex-1 overflow-auto p-4 xl:px-10 xl:py-6">
+        <div className="flex-1 overflow-auto p-1 sm:p-2 md:p-3 lg:p-4">
           {selectedBoard ? (
-            <div className="w-full max-w-6xl xl:max-w-7xl 2xl:max-w-[1500px] mx-auto px-3 sm:px-4 lg:px-6">
+            <div className="w-full px-0">
               {/* Tabela com scroll controlado (>=1200px) */}
               <div className="task-table-view">
-                <div className="bg-card border border-border rounded-lg shadow-sm w-full overflow-x-auto overflow-y-hidden nice-scrollbar tasks-scroll">
+                <div className="bg-card border border-border rounded-lg shadow-sm w-full overflow-x-auto overflow-y-hidden nice-scrollbar tasks-scroll min-h-[60vh] px-1 sm:px-2">
                   <div
-                    className={`${TASK_GRID} ${TABLE_MIN_WIDTH} px-4 py-3 xl:px-6 xl:py-3.5 text-[11px] font-medium tracking-wide text-muted-foreground border-b border-white/5 items-center`}
+                    className={`${TASK_GRID} ${TABLE_MIN_WIDTH} px-3 py-3 xl:px-5 xl:py-3.5 text-[11px] font-medium tracking-wide text-muted-foreground border-b border-white/5 items-center`}
                   >
                     <span>Task</span>
                     <span>Status</span>
                     <span className="text-center">Priority</span>
-                    <span className="text-center">Group</span>
+                    <span className="text-center">Tags</span>
                     <span>Assignee</span>
                     <span>Start date</span>
                     <span>Due date</span>
@@ -2097,7 +2245,6 @@ export default function DashboardPage() {
                               rowIndex={idx}
                               task={task}
                               statuses={statuses}
-                              groups={groups}
                               users={users}
                               onStatusChange={handleUpdateTaskStatus}
                               onDelete={handleDeleteTask}
@@ -2124,7 +2271,6 @@ export default function DashboardPage() {
                 ) : (
                   filteredTasks.map((task) => {
                     const priority = priorityConfig[task.priority];
-                    const group = groups.find((g) => g.id === task.groupId);
                     const status = statuses.find((s) => s.id === task.statusId);
                     const assignee = task.assignee;
                     const assigneeImage = (assignee as any)?.image as
@@ -2202,11 +2348,25 @@ export default function DashboardPage() {
 
                           <div className="flex items-center gap-2">
                             <Label className="text-[11px] text-muted-foreground">
-                              Group
+                              Tags
                             </Label>
-                            <span className="text-sm text-foreground">
-                              {group ? group.name : "—"}
-                            </span>
+                            <div className="text-[15px] font-medium text-foreground min-w-0 truncate">
+                              {task.tags && task.tags.length > 0 ? (
+                                <span>
+                                  {task.tags
+                                    .slice(0, 3)
+                                    .map((tag) => tag.name)
+                                    .join(", ")}
+                                  {task.tags.length > 3 && (
+                                    <span className="text-muted-foreground">
+                                      , +{task.tags.length - 3}
+                                    </span>
+                                  )}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </div>
                           </div>
 
                           <div className="flex items-center gap-2">
@@ -2819,7 +2979,6 @@ type RowProps = {
   rowIndex: number;
   task: Task;
   statuses: Status[];
-  groups: Group[];
   users: User[];
   onStatusChange: (taskId: string, statusId: string) => void;
   onDelete: (taskId: string) => void;
@@ -2908,7 +3067,6 @@ function SortableTaskRow({
   rowIndex,
   task,
   statuses,
-  groups,
   users,
   onStatusChange,
   onDelete,
@@ -2919,10 +3077,9 @@ function SortableTaskRow({
   onEditTask,
 }: RowProps) {
   const priority = priorityConfig[task.priority];
-  const group = groups.find((g) => g.id === task.groupId);
   const status = statuses.find((s) => s.id === task.statusId);
   const assignee =
-    task.assignee ||
+        task.assignee ||
     (task.assigneeId ? users.find((u) => u.id === task.assigneeId) : null);
   const assigneeImage = (assignee as any)?.image as string | undefined;
 
@@ -3022,8 +3179,20 @@ function SortableTaskRow({
         </Select>
       </div>
 
-      <div className="flex items-center justify-center text-sm text-foreground min-w-0">
-        {group ? group.name : "—"}
+      <div className="flex items-center justify-center text-[15px] font-semibold text-foreground min-w-0 text-center">
+        {task.tags && task.tags.length > 0 ? (
+          <div className="truncate">
+            {task.tags
+              .slice(0, 3)
+              .map((tag) => tag.name)
+              .join(", ")}
+            {task.tags.length > 3 && (
+              <span className="text-muted-foreground">, +{task.tags.length - 3}</span>
+            )}
+          </div>
+        ) : (
+          <span className="text-muted-foreground text-xs">-</span>
+        )}
       </div>
 
       <div className="flex items-center justify-center min-w-0">
