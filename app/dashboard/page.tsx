@@ -229,8 +229,8 @@ const TagListSelect = ({
                   Nenhuma selecionada
                 </SelectItem>
               ) : (
-                uniqueSelected.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
+                uniqueSelected.map((t, idx) => (
+                  <SelectItem key={`${t.id}-${idx}`} value={t.id}>
                     {t.name}
                   </SelectItem>
                 ))
