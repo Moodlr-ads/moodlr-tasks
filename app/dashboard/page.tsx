@@ -154,6 +154,8 @@ type TagListSelectProps = {
 
 const TAG_LIMIT = 5;
 
+const uniq = (arr: string[]) => Array.from(new Set(arr));
+
 const priorityConfig: Record<string, { label: string; color: string }> = {
   low: { label: "Low", color: "#22c55e" },
   medium: { label: "Medium", color: "#eab308" },
@@ -189,11 +191,9 @@ const TagListSelect = ({
   onNewTagNameChange,
   onCreate,
 }: TagListSelectProps) => {
-  const reachedLimit = selectedIds.length >= limit;
-  const selected = tags.filter((t) => selectedIds.includes(t.id));
-  const uniqueSelected = Array.from(
-    new Map(selected.map((t) => [t.id, t])).values(),
-  );
+  const selectedIdsUnique = uniq(selectedIds);
+  const reachedLimit = selectedIdsUnique.length >= limit;
+  const uniqueSelected = tags.filter((t) => selectedIdsUnique.includes(t.id));
   const [removeTarget, setRemoveTarget] = useState("");
 
   return (
@@ -208,7 +208,7 @@ const TagListSelect = ({
           <span className="text-muted-foreground">Nenhuma</span>
         ) : (
           <span className="text-foreground">
-            {selected.map((t) => t.name).join(", ")}
+            {uniqueSelected.map((t) => t.name).join(", ")}
           </span>
         )}
       </div>
@@ -402,8 +402,9 @@ export default function DashboardPage() {
   };
 
   const setTagSelection = (mode: "new" | "edit", id: string) => {
-    const current = mode === "new" ? newTaskTagIds : editTaskTagIds;
+    const currentRaw = mode === "new" ? newTaskTagIds : editTaskTagIds;
     const updater = mode === "new" ? setNewTaskTagIds : setEditTaskTagIds;
+    const current = uniq(currentRaw);
     const isSelected = current.includes(id);
 
     if (!isSelected && current.length >= TAG_LIMIT) {
@@ -411,9 +412,12 @@ export default function DashboardPage() {
       return;
     }
 
-    updater((prev) =>
-      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id],
-    );
+    updater((prev) => {
+      const base = uniq(prev);
+      return base.includes(id)
+        ? base.filter((t) => t !== id)
+        : uniq([...base, id]);
+    });
   };
 
   // Fetch workspaces
@@ -530,7 +534,7 @@ export default function DashboardPage() {
 
         const selectFn = editingTask ? setEditTaskTagIds : setNewTaskTagIds;
         selectFn((prev) =>
-          prev.includes(tagToAdd.id) ? prev : [...prev, tagToAdd.id],
+          prev.includes(tagToAdd.id) ? uniq(prev) : uniq([...prev, tagToAdd.id]),
         );
         setNewTagName("");
         toast.success("Tag added");
@@ -545,7 +549,9 @@ export default function DashboardPage() {
           toast.warning(`Tag created, but limit of ${TAG_LIMIT} tags reached.`);
         } else {
           const selectFn = editingTask ? setEditTaskTagIds : setNewTaskTagIds;
-          selectFn((prev) => (prev.includes(tag.id) ? prev : [...prev, tag.id]));
+          selectFn((prev) =>
+            prev.includes(tag.id) ? uniq(prev) : uniq([...prev, tag.id]),
+          );
         }
         setNewTagName("");
         toast.success("Tag created");
@@ -1310,7 +1316,9 @@ export default function DashboardPage() {
     setEditTaskDesc(task.description || "");
     setEditTaskStatusId(task.statusId || "");
     setEditTaskPriority(task.priority);
-    setEditTaskTagIds(task.tags?.map((t) => t.id).slice(0, TAG_LIMIT) || []);
+        setEditTaskTagIds(
+          uniq(task.tags?.map((t) => t.id).slice(0, TAG_LIMIT) || []),
+        );
     setEditTaskAssigneeId(task.assigneeId || "unassigned");
     setEditTaskStartDate(formatDateValue(task.startDate) || "");
     setEditTaskDueDate(formatDateValue(task.dueDate) || "");
