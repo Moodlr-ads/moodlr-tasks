@@ -42,16 +42,28 @@ export async function POST(req: Request) {
     }
 
     const { name, workspaceId } = await req.json();
-    if (!workspaceId || !name?.trim()) {
+    const trimmed = name?.trim();
+    if (!workspaceId || !trimmed) {
       return NextResponse.json(
         { error: "name and workspaceId are required" },
         { status: 400 },
       );
     }
 
+    // Se já existir, retorna a existente (idempotente)
+    const existing = await prisma.tag.findFirst({
+      where: {
+        workspaceId,
+        name: trimmed,
+      },
+    });
+    if (existing) {
+      return NextResponse.json(existing, { status: 200 });
+    }
+
     const tag = await prisma.tag.create({
       data: {
-        name: name.trim(),
+        name: trimmed,
         workspaceId,
       },
     });
@@ -59,6 +71,14 @@ export async function POST(req: Request) {
     return NextResponse.json(tag, { status: 201 });
   } catch (error: any) {
     if (error.code === "P2002") {
+      // Como fallback, tenta retornar a tag existente
+      const { name, workspaceId } = await req.json().catch(() => ({}));
+      if (name && workspaceId) {
+        const found = await prisma.tag.findFirst({
+          where: { workspaceId, name: name.trim() },
+        });
+        if (found) return NextResponse.json(found, { status: 200 });
+      }
       return NextResponse.json(
         { error: "Tag already exists in this workspace" },
         { status: 400 },
@@ -66,8 +86,8 @@ export async function POST(req: Request) {
     }
     console.error("Error creating tag:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
+        { error: "Internal server error" },
+        { status: 500 },
     );
   }
 }
