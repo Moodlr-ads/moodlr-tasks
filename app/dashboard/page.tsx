@@ -145,7 +145,6 @@ interface Task {
 type TagListSelectProps = {
   tags: Tag[];
   selectedIds: string[];
-  onAddExisting: (id: string) => void;
   onRemove: (id: string) => void;
   limit: number;
   newTagName: string;
@@ -184,7 +183,6 @@ const emojiOptions = [
 const TagListSelect = ({
   tags,
   selectedIds,
-  onAddExisting,
   onRemove,
   limit,
   newTagName,
@@ -194,8 +192,6 @@ const TagListSelect = ({
   const reachedLimit = selectedIds.length >= limit;
   const selected = tags.filter((t) => selectedIds.includes(t.id));
   const [removeTarget, setRemoveTarget] = useState("");
-  const [addTarget, setAddTarget] = useState("");
-  const availableToAdd = tags.filter((t) => !selectedIds.includes(t.id));
 
   return (
     <div className="space-y-3">
@@ -252,51 +248,6 @@ const TagListSelect = ({
           </Button>
         </div>
       </div>
-
-      <div className="space-y-1">
-        <Label className="text-[12px] text-muted-foreground">Adicionar</Label>
-        <div className="flex gap-2">
-          <Select
-            value={addTarget}
-            onValueChange={(val) => setAddTarget(val === "__none" ? "" : val)}
-            disabled={reachedLimit || availableToAdd.length === 0}
-          >
-            <SelectTrigger className="flex-1">
-              <SelectValue placeholder={reachedLimit ? "Limite atingido" : "Escolher tag"} />
-            </SelectTrigger>
-            <SelectContent>
-              {availableToAdd.length === 0 ? (
-                <SelectItem value="__none" disabled>
-                  Nenhuma disponível
-                </SelectItem>
-              ) : (
-                availableToAdd.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-          <Button
-            type="button"
-            onClick={() => {
-              if (reachedLimit) return;
-              if (addTarget) {
-                onAddExisting(addTarget);
-                setAddTarget("");
-                return;
-              }
-              onCreate();
-            }}
-            className="h-10 px-4"
-            disabled={reachedLimit}
-          >
-            Add
-          </Button>
-        </div>
-      </div>
-
       {reachedLimit && (
         <p className="text-xs text-muted-foreground">
           Máximo de {limit} tags por task.
@@ -447,17 +398,6 @@ export default function DashboardPage() {
     setTagSelection("edit", id);
   };
 
-  const addExistingTag = (mode: "new" | "edit", id: string) => {
-    const current = mode === "new" ? newTaskTagIds : editTaskTagIds;
-    const updater = mode === "new" ? setNewTaskTagIds : setEditTaskTagIds;
-    if (current.includes(id)) return;
-    if (current.length >= TAG_LIMIT) {
-      toast.error(`You can add up to ${TAG_LIMIT} tags per task.`);
-      return;
-    }
-    updater((prev) => [...prev, id]);
-  };
-
   const setTagSelection = (mode: "new" | "edit", id: string) => {
     const current = mode === "new" ? newTaskTagIds : editTaskTagIds;
     const updater = mode === "new" ? setNewTaskTagIds : setEditTaskTagIds;
@@ -546,12 +486,13 @@ export default function DashboardPage() {
 
   const handleCreateTag = useCallback(async () => {
     if (!selectedWorkspace || !newTagName.trim()) return;
+    const trimmed = newTagName.trim();
     try {
       const res = await fetch("/api/tags", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: newTagName.trim(),
+          name: trimmed,
           workspaceId: selectedWorkspace.id,
         }),
       });
@@ -567,6 +508,49 @@ export default function DashboardPage() {
         }
         setNewTagName("");
         toast.success("Tag created");
+      } else if (res.status === 409) {
+        // Já existe; apenas vincula se ainda não selecionada
+        const existing =
+          tags.find(
+            (t) =>
+              t.workspaceId === selectedWorkspace.id &&
+              t.name.toLowerCase() === trimmed.toLowerCase(),
+          ) || null;
+
+        if (!existing) {
+          const refetch = await fetch(
+            `/api/tags?workspace_id=${selectedWorkspace.id}`,
+          );
+          if (refetch.ok) {
+            const refreshed = await refetch.json();
+            setTags(refreshed);
+          }
+        }
+
+        const tagToAdd =
+          existing ||
+          tags.find(
+            (t) =>
+              t.workspaceId === selectedWorkspace.id &&
+              t.name.toLowerCase() === trimmed.toLowerCase(),
+          );
+
+        if (tagToAdd) {
+          const currentSelected = editingTask ? editTaskTagIds : newTaskTagIds;
+          if (currentSelected.length >= TAG_LIMIT) {
+            toast.warning(`Tag exists, but limit of ${TAG_LIMIT} tags reached.`);
+          } else {
+            const selectFn = editingTask ? setEditTaskTagIds : setNewTaskTagIds;
+            selectFn((prev) =>
+              prev.includes(tagToAdd.id) ? prev : [...prev, tagToAdd.id],
+            );
+            toast.success("Tag added");
+            setNewTagName("");
+          }
+        } else {
+          const data = await res.json().catch(() => null);
+          toast.error(data?.error || "Failed to attach tag");
+        }
       } else {
         const data = await res.json().catch(() => null);
         toast.error(data?.error || "Failed to create tag");
@@ -574,7 +558,7 @@ export default function DashboardPage() {
     } catch {
       toast.error("Failed to create tag");
     }
-  }, [newTagName, selectedWorkspace]);
+  }, [newTagName, selectedWorkspace, tags, editingTask, editTaskTagIds, newTaskTagIds]);
 
   useEffect(() => {
     fetchWorkspaces();
@@ -1834,7 +1818,6 @@ export default function DashboardPage() {
               <TagListSelect
                 tags={tags}
                 selectedIds={editTaskTagIds}
-                onAddExisting={(id) => addExistingTag("edit", id)}
                 onRemove={(id) =>
                   setEditTaskTagIds((prev) => prev.filter((t) => t !== id))
                 }
@@ -2123,7 +2106,6 @@ export default function DashboardPage() {
                 <TagListSelect
                   tags={tags}
                   selectedIds={newTaskTagIds}
-                  onAddExisting={(id) => addExistingTag("new", id)}
                   onRemove={(id) =>
                     setNewTaskTagIds((prev) => prev.filter((t) => t !== id))
                   }
