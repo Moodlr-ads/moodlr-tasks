@@ -496,6 +496,45 @@ export default function DashboardPage() {
           workspaceId: selectedWorkspace.id,
         }),
       });
+      const tryAttachExisting = async () => {
+        let tagToAdd =
+          tags.find(
+            (t) =>
+              t.workspaceId === selectedWorkspace.id &&
+              t.name.toLowerCase() === trimmed.toLowerCase(),
+          ) || null;
+        if (!tagToAdd) {
+          const refetch = await fetch(
+            `/api/tags?workspace_id=${selectedWorkspace.id}`,
+          );
+          if (refetch.ok) {
+            const refreshed = await refetch.json();
+            setTags(refreshed);
+            tagToAdd =
+              refreshed.find(
+                (t: Tag) =>
+                  t.workspaceId === selectedWorkspace.id &&
+                  t.name.toLowerCase() === trimmed.toLowerCase(),
+              ) || null;
+          }
+        }
+        if (tagToAdd) {
+          const currentSelected = editingTask ? editTaskTagIds : newTaskTagIds;
+          if (currentSelected.length >= TAG_LIMIT) {
+            toast.warning(`Tag exists, but limit of ${TAG_LIMIT} tags reached.`);
+            return;
+          }
+          const selectFn = editingTask ? setEditTaskTagIds : setNewTaskTagIds;
+          selectFn((prev) =>
+            prev.includes(tagToAdd!.id) ? prev : [...prev, tagToAdd!.id],
+          );
+          setNewTagName("");
+          toast.success("Tag added");
+          return true;
+        }
+        return false;
+      };
+
       if (res.ok) {
         const tag = await res.json();
         setTags((prev) => [...prev, tag]);
@@ -508,52 +547,21 @@ export default function DashboardPage() {
         }
         setNewTagName("");
         toast.success("Tag created");
-      } else if (res.status === 409) {
-        // Já existe; apenas vincula se ainda não selecionada
-        const existing =
-          tags.find(
-            (t) =>
-              t.workspaceId === selectedWorkspace.id &&
-              t.name.toLowerCase() === trimmed.toLowerCase(),
-          ) || null;
-
-        if (!existing) {
-          const refetch = await fetch(
-            `/api/tags?workspace_id=${selectedWorkspace.id}`,
-          );
-          if (refetch.ok) {
-            const refreshed = await refetch.json();
-            setTags(refreshed);
-          }
-        }
-
-        const tagToAdd =
-          existing ||
-          tags.find(
-            (t) =>
-              t.workspaceId === selectedWorkspace.id &&
-              t.name.toLowerCase() === trimmed.toLowerCase(),
-          );
-
-        if (tagToAdd) {
-          const currentSelected = editingTask ? editTaskTagIds : newTaskTagIds;
-          if (currentSelected.length >= TAG_LIMIT) {
-            toast.warning(`Tag exists, but limit of ${TAG_LIMIT} tags reached.`);
-          } else {
-            const selectFn = editingTask ? setEditTaskTagIds : setNewTaskTagIds;
-            selectFn((prev) =>
-              prev.includes(tagToAdd.id) ? prev : [...prev, tagToAdd.id],
-            );
-            toast.success("Tag added");
-            setNewTagName("");
-          }
-        } else {
-          const data = await res.json().catch(() => null);
-          toast.error(data?.error || "Failed to attach tag");
-        }
       } else {
         const data = await res.json().catch(() => null);
-        toast.error(data?.error || "Failed to create tag");
+        const duplicate =
+          res.status === 409 ||
+          (res.status === 400 &&
+            (data?.error || "")
+              .toString()
+              .toLowerCase()
+              .includes("unique constraint"));
+        if (duplicate) {
+          const attached = await tryAttachExisting();
+          if (!attached) toast.error("Tag already exists in this workspace");
+        } else {
+          toast.error(data?.error || "Failed to create tag");
+        }
       }
     } catch {
       toast.error("Failed to create tag");
