@@ -497,12 +497,15 @@ export default function DashboardPage() {
         }),
       });
       const tryAttachExisting = async () => {
-        let tagToAdd =
-          tags.find(
+        const findExisting = (list: Tag[]) =>
+          list.find(
             (t) =>
               t.workspaceId === selectedWorkspace.id &&
               t.name.toLowerCase() === trimmed.toLowerCase(),
           ) || null;
+
+        let tagToAdd = findExisting(tags);
+
         if (!tagToAdd) {
           const refetch = await fetch(
             `/api/tags?workspace_id=${selectedWorkspace.id}`,
@@ -510,29 +513,25 @@ export default function DashboardPage() {
           if (refetch.ok) {
             const refreshed = await refetch.json();
             setTags(refreshed);
-            tagToAdd =
-              refreshed.find(
-                (t: Tag) =>
-                  t.workspaceId === selectedWorkspace.id &&
-                  t.name.toLowerCase() === trimmed.toLowerCase(),
-              ) || null;
+            tagToAdd = findExisting(refreshed);
           }
         }
-        if (tagToAdd) {
-          const currentSelected = editingTask ? editTaskTagIds : newTaskTagIds;
-          if (currentSelected.length >= TAG_LIMIT) {
-            toast.warning(`Tag exists, but limit of ${TAG_LIMIT} tags reached.`);
-            return;
-          }
-          const selectFn = editingTask ? setEditTaskTagIds : setNewTaskTagIds;
-          selectFn((prev) =>
-            prev.includes(tagToAdd!.id) ? prev : [...prev, tagToAdd!.id],
-          );
-          setNewTagName("");
-          toast.success("Tag added");
+
+        if (!tagToAdd) return false;
+
+        const currentSelected = editingTask ? editTaskTagIds : newTaskTagIds;
+        if (currentSelected.length >= TAG_LIMIT) {
+          toast.warning(`Tag exists, but limit of ${TAG_LIMIT} tags reached.`);
           return true;
         }
-        return false;
+
+        const selectFn = editingTask ? setEditTaskTagIds : setNewTaskTagIds;
+        selectFn((prev) =>
+          prev.includes(tagToAdd.id) ? prev : [...prev, tagToAdd.id],
+        );
+        setNewTagName("");
+        toast.success("Tag added");
+        return true;
       };
 
       if (res.ok) {
