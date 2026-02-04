@@ -191,6 +191,9 @@ const TagListSelect = ({
 }: TagListSelectProps) => {
   const reachedLimit = selectedIds.length >= limit;
   const selected = tags.filter((t) => selectedIds.includes(t.id));
+  const uniqueSelected = Array.from(
+    new Map(selected.map((t) => [t.id, t])).values(),
+  );
   const [removeTarget, setRemoveTarget] = useState("");
 
   return (
@@ -221,12 +224,12 @@ const TagListSelect = ({
               <SelectValue placeholder="Escolher tag" />
             </SelectTrigger>
             <SelectContent>
-              {selected.length === 0 ? (
+              {uniqueSelected.length === 0 ? (
                 <SelectItem value="__none" disabled>
                   Nenhuma selecionada
                 </SelectItem>
               ) : (
-                selected.map((t) => (
+                uniqueSelected.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
                     {t.name}
                   </SelectItem>
