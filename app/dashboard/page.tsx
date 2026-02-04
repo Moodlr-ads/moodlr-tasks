@@ -155,6 +155,8 @@ type TagListSelectProps = {
 const TAG_LIMIT = 5;
 
 const uniq = (arr: string[]) => Array.from(new Set(arr));
+const uniqTags = (arr: Tag[]) =>
+  Array.from(new Map(arr.map((t) => [t.id, t])).values());
 
 const priorityConfig: Record<string, { label: string; color: string }> = {
   low: { label: "Low", color: "#22c55e" },
@@ -193,7 +195,10 @@ const TagListSelect = ({
 }: TagListSelectProps) => {
   const selectedIdsUnique = uniq(selectedIds);
   const reachedLimit = selectedIdsUnique.length >= limit;
-  const uniqueSelected = tags.filter((t) => selectedIdsUnique.includes(t.id));
+  const uniqueTags = uniqTags(tags);
+  const uniqueSelected = uniqueTags.filter((t) =>
+    selectedIdsUnique.includes(t.id),
+  );
   const [removeTarget, setRemoveTarget] = useState("");
 
   return (
@@ -480,7 +485,7 @@ export default function DashboardPage() {
       if (statusRes.ok) setStatuses(await statusRes.json());
       if (workspaceId) {
         const tagRes = await fetch(`/api/tags?workspace_id=${workspaceId}`);
-        if (tagRes.ok) setTags(await tagRes.json());
+        if (tagRes.ok) setTags(uniqTags(await tagRes.json()));
         else setTags([]);
       } else {
         setTags([]);
@@ -519,7 +524,7 @@ export default function DashboardPage() {
           );
           if (refetch.ok) {
             const refreshed = await refetch.json();
-            setTags(refreshed);
+            setTags(uniqTags(refreshed));
             tagToAdd = findExisting(refreshed);
           }
         }
@@ -543,7 +548,7 @@ export default function DashboardPage() {
 
       if (res.ok) {
         const tag = await res.json();
-        setTags((prev) => [...prev, tag]);
+        setTags((prev) => uniqTags([...prev, tag]));
         const currentSelected = editingTask ? editTaskTagIds : newTaskTagIds;
         if (currentSelected.length >= TAG_LIMIT) {
           toast.warning(`Tag created, but limit of ${TAG_LIMIT} tags reached.`);

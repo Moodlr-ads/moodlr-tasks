@@ -73,6 +73,9 @@ agenthub/agents/youtube/db
 *.deb
 *.dylib
 
+# Prisma client (gerado)
+prisma/generated/
+
 # Build caches
 .cache/
 
