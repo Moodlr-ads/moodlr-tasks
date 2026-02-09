@@ -139,6 +139,7 @@ interface Task {
   order: number;
   assigneeId?: string | null;
   assignee?: User | null;
+  assignees?: { user: User }[];
   tags?: Tag[];
 }
 
@@ -157,6 +158,15 @@ const TAG_LIMIT = 5;
 const uniq = (arr: string[]) => Array.from(new Set(arr));
 const uniqTags = (arr: Tag[]) =>
   Array.from(new Map(arr.map((t) => [t.id, t])).values());
+const normalizeTask = (task: any): Task => {
+  const firstAssignee = task.assignees?.[0]?.user ?? null;
+  return {
+    ...task,
+    assignee: firstAssignee,
+    assigneeId: firstAssignee?.id ?? null,
+    assignees: task.assignees ?? [],
+  };
+};
 
 const priorityConfig: Record<string, { label: string; color: string }> = {
   low: { label: "Low", color: "#22c55e" },
@@ -341,6 +351,10 @@ export default function DashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatusId, setFilterStatusId] = useState<string>("");
+  const [filterPriority, setFilterPriority] = useState<string>("");
+  const [filterAssigneeIds, setFilterAssigneeIds] = useState<string[]>([]);
+  const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -368,7 +382,7 @@ export default function DashboardPage() {
   const [newTaskPriority, setNewTaskPriority] = useState("medium");
   const [newTaskStatusId, setNewTaskStatusId] = useState("");
   const [newTaskTagIds, setNewTaskTagIds] = useState<string[]>([]);
-  const [newTaskAssigneeId, setNewTaskAssigneeId] = useState("unassigned");
+  const [newTaskAssigneeIds, setNewTaskAssigneeIds] = useState<string[]>([]);
   const [newTaskDueDate, setNewTaskDueDate] = useState("");
   const [newTaskStartDate, setNewTaskStartDate] = useState("");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -377,7 +391,7 @@ export default function DashboardPage() {
   const [editTaskStatusId, setEditTaskStatusId] = useState("");
   const [editTaskPriority, setEditTaskPriority] = useState<Task["priority"]>("medium");
   const [editTaskTagIds, setEditTaskTagIds] = useState<string[]>([]);
-  const [editTaskAssigneeId, setEditTaskAssigneeId] = useState("unassigned");
+  const [editTaskAssigneeIds, setEditTaskAssigneeIds] = useState<string[]>([]);
   const [editTaskStartDate, setEditTaskStartDate] = useState("");
   const [editTaskDueDate, setEditTaskDueDate] = useState("");
   const [newWorkspaceIcon, setNewWorkspaceIcon] = useState("📁");
@@ -490,7 +504,7 @@ export default function DashboardPage() {
       } else {
         setTags([]);
       }
-      if (taskRes.ok) setTasks(await taskRes.json());
+      if (taskRes.ok) setTasks((await taskRes.json()).map(normalizeTask));
     } catch {
       toast.error("Failed to load board data");
     }
@@ -1180,8 +1194,7 @@ export default function DashboardPage() {
           priority: newTaskPriority,
           statusId: newTaskStatusId || null,
           groupId: null,
-          assigneeId:
-            newTaskAssigneeId === "unassigned" ? null : newTaskAssigneeId,
+          assigneeIds: newTaskAssigneeIds,
           startDate: newTaskStartDate || null,
           dueDate: newTaskDueDate || null,
           tagIds: newTaskTagIds.slice(0, TAG_LIMIT),
@@ -1195,7 +1208,7 @@ export default function DashboardPage() {
       setNewTaskPriority("medium");
       setNewTaskStatusId("");
       setNewTaskTagIds([]);
-      setNewTaskAssigneeId("unassigned");
+      setNewTaskAssigneeIds([]);
       setNewTaskDueDate("");
       setNewTaskStartDate("");
       setShowNewTask(false);
@@ -1237,24 +1250,25 @@ export default function DashboardPage() {
     }
   };
 
-  const handleUpdateTaskAssignee = async (
+  const handleUpdateTaskAssignees = async (
     taskId: string,
-    assigneeId: string | null,
+    assigneeIds: string[],
   ) => {
     try {
       const res = await fetch(`/api/tasks/${taskId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assigneeId }),
+        body: JSON.stringify({ assigneeIds }),
       });
       if (res.ok) {
-        const updated = await res.json();
+        const updated = normalizeTask(await res.json());
         setTasks((prev) =>
           prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
         );
+        toast.success("Assignees updated");
       }
     } catch {
-      toast.error("Failed to update assignee");
+      toast.error("Failed to update assignees");
     }
   };
 
@@ -1324,7 +1338,10 @@ export default function DashboardPage() {
         setEditTaskTagIds(
           uniq(task.tags?.map((t) => t.id).slice(0, TAG_LIMIT) || []),
         );
-    setEditTaskAssigneeId(task.assigneeId || "unassigned");
+    setEditTaskAssigneeIds(
+      task.assignees?.map((a) => a.user.id) ||
+        (task.assigneeId ? [task.assigneeId] : []),
+    );
     setEditTaskStartDate(formatDateValue(task.startDate) || "");
     setEditTaskDueDate(formatDateValue(task.dueDate) || "");
   };
@@ -1353,14 +1370,13 @@ export default function DashboardPage() {
           statusId: editTaskStatusId || null,
           priority: editTaskPriority,
           tagIds: editTaskTagIds.slice(0, TAG_LIMIT),
-          assigneeId:
-            editTaskAssigneeId === "unassigned" ? null : editTaskAssigneeId,
+          assigneeIds: editTaskAssigneeIds,
           startDate: editTaskStartDate || null,
           dueDate: editTaskDueDate || null,
         }),
       });
       if (res.ok) {
-        const updated = await res.json();
+        const updated = normalizeTask(await res.json());
         setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
         setEditingTask(null);
         toast.success("Task updated");
@@ -1850,23 +1866,43 @@ export default function DashboardPage() {
                 onCreate={handleCreateTag}
               />
               <div>
-                <Label>Assignee (optional)</Label>
-                <Select
-                  value={editTaskAssigneeId}
-                  onValueChange={setEditTaskAssigneeId}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select person" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unassigned">Unassigned</SelectItem>
-                    {users.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
+                <Label>Assignees (optional)</Label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {users.map((u) => {
+                    const checked = editTaskAssigneeIds.includes(u.id);
+                    return (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() =>
+                          setEditTaskAssigneeIds((prev) =>
+                            prev.includes(u.id)
+                              ? prev.filter((id) => id !== u.id)
+                              : [...prev, u.id],
+                          )
+                        }
+                        className={cn(
+                          "px-2 py-1 rounded border text-sm",
+                          checked
+                            ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                            : "bg-card text-foreground",
+                        )}
+                      >
                         {u.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      </button>
+                    );
+                  })}
+                  {editTaskAssigneeIds.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditTaskAssigneeIds([])}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
               <div className="grid grid-cols-2 gap-3">
@@ -2139,25 +2175,43 @@ export default function DashboardPage() {
                 />
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <Label>Assignee (optional)</Label>
-                        <Select
-                          value={newTaskAssigneeId}
-                          onValueChange={setNewTaskAssigneeId}
-                        >
-                          <SelectTrigger className="mt-1">
-                            <SelectValue placeholder="Select person" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="unassigned">
-                              Unassigned
-                            </SelectItem>
-                            {users.map((u) => (
-                              <SelectItem key={u.id} value={u.id}>
+                        <Label>Assignees (optional)</Label>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {users.map((u) => {
+                            const checked = newTaskAssigneeIds.includes(u.id);
+                            return (
+                              <button
+                                key={u.id}
+                                type="button"
+                                onClick={() =>
+                                  setNewTaskAssigneeIds((prev) =>
+                                    prev.includes(u.id)
+                                      ? prev.filter((id) => id !== u.id)
+                                      : [...prev, u.id],
+                                  )
+                                }
+                                className={cn(
+                                  "px-2 py-1 rounded border text-sm",
+                                  checked
+                                    ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                    : "bg-card text-foreground",
+                                )}
+                              >
                                 {u.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                              </button>
+                            );
+                          })}
+                          {newTaskAssigneeIds.length > 0 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setNewTaskAssigneeIds([])}
+                            >
+                              Clear
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
@@ -3055,7 +3109,7 @@ type RowProps = {
   users: User[];
   onStatusChange: (taskId: string, statusId: string) => void;
   onDelete: (taskId: string) => void;
-  onAssigneeChange: (taskId: string, assigneeId: string | null) => void;
+  onAssigneeChange: (taskId: string, assigneeIds: string[]) => void;
   onStartDateChange: (taskId: string, startDate: string) => void;
   onDueDateChange: (taskId: string, dueDate: string) => void;
   onPriorityChange: (taskId: string, priority: Task["priority"]) => void;
@@ -3272,7 +3326,10 @@ function SortableTaskRow({
         <Select
           value={task.assigneeId ?? "unassigned"}
           onValueChange={(val) =>
-            onAssigneeChange(task.id, val === "unassigned" ? null : val)
+            onAssigneeChange(
+              task.id,
+              val === "unassigned" ? [] : [val],
+            )
           }
         >
           <SelectTrigger className="w-full max-w-[220px] h-10 px-3 min-w-0">

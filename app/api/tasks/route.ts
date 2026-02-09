@@ -4,13 +4,13 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
 type TagPayload = string[] | undefined;
+type AssigneePayload = string[] | undefined;
 
 function parseDateInput(dateStr?: string | null) {
   if (!dateStr) return null;
   const trimmed = String(dateStr).trim();
   if (!trimmed) return null;
 
-  // Expect "yyyy-MM-dd" or ISO; fallback to Date parse
   const isoCandidate = /^\d{4}-\d{2}-\d{2}$/;
   const normalized = isoCandidate.test(trimmed)
     ? `${trimmed}T00:00:00Z`
@@ -45,6 +45,15 @@ async function validateTagIds(tagIds: TagPayload, workspaceId: string) {
   return existing.map((t) => t.id);
 }
 
+async function validateAssigneeIds(assigneeIds: AssigneePayload) {
+  if (!assigneeIds || !assigneeIds.length) return [];
+  const existing = await prisma.user.findMany({
+    where: { id: { in: assigneeIds } },
+    select: { id: true },
+  });
+  return existing.map((u) => u.id);
+}
+
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -58,12 +67,20 @@ export async function GET(req: Request) {
     const statusId = searchParams.get("status_id");
     const priority = searchParams.get("priority");
     const search = searchParams.get("search");
+    const assignees = searchParams.getAll("assignee_id");
+    const tags = searchParams.getAll("tag_id");
 
     const where: any = {};
     if (boardId) where.boardId = boardId;
     if (groupId) where.groupId = groupId;
     if (statusId) where.statusId = statusId;
     if (priority) where.priority = priority;
+    if (assignees.length) {
+      where.assignees = { some: { userId: { in: assignees } } };
+    }
+    if (tags.length) {
+      where.tags = { some: { id: { in: tags } } };
+    }
     if (search) {
       where.OR = [
         { title: { contains: search, mode: "insensitive" } },
@@ -76,8 +93,12 @@ export async function GET(req: Request) {
       orderBy: { order: "asc" },
       include: {
         assignee: {
-          // ✅ FIX: incluir image do assignee (resolve sumir no F5)
           select: { id: true, name: true, email: true, image: true },
+        },
+        assignees: {
+          include: {
+            user: { select: { id: true, name: true, email: true, image: true } },
+          },
         },
         tags: true,
       },
@@ -111,6 +132,7 @@ export async function POST(req: Request) {
       dueDate,
       order,
       assigneeId,
+      assigneeIds,
       tagIds,
     } = await req.json();
 
@@ -157,19 +179,6 @@ export async function POST(req: Request) {
       }
     }
 
-    if (assigneeId) {
-      const userExists = await prisma.user.findUnique({
-        where: { id: assigneeId },
-        select: { id: true },
-      });
-      if (!userExists) {
-        return NextResponse.json(
-          { error: "Assignee not found" },
-          { status: 400 },
-        );
-      }
-    }
-
     const existingMax = await prisma.task.aggregate({
       where: { boardId },
       _max: { order: true },
@@ -183,6 +192,14 @@ export async function POST(req: Request) {
           : 0;
 
     const sanitizedTagIds = await validateTagIds(tagIds, boardInfo.workspaceId);
+    const requestedAssignees: string[] = Array.isArray(assigneeIds)
+      ? assigneeIds
+      : assigneeId
+        ? [assigneeId]
+        : [];
+    const sanitizedAssignees = await validateAssigneeIds(
+      Array.from(new Set(requestedAssignees)),
+    );
 
     const task = await prisma.task.create({
       data: {
@@ -195,16 +212,28 @@ export async function POST(req: Request) {
         startDate: start,
         dueDate: due,
         order: nextOrder,
-        assigneeId: assigneeId || null,
+        assigneeId: sanitizedAssignees[0] ?? null,
         tags:
           sanitizedTagIds.length > 0
             ? { connect: sanitizedTagIds.map((id: string) => ({ id })) }
             : undefined,
+        assignees:
+          sanitizedAssignees.length > 0
+            ? {
+                create: sanitizedAssignees.map((id: string) => ({
+                  user: { connect: { id } },
+                })),
+              }
+            : undefined,
       },
       include: {
         assignee: {
-          // ✅ FIX: incluir image do assignee (mantém consistente ao criar)
           select: { id: true, name: true, email: true, image: true },
+        },
+        assignees: {
+          include: {
+            user: { select: { id: true, name: true, email: true, image: true } },
+          },
         },
         tags: true,
       },

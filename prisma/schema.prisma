@@ -21,6 +21,7 @@ model User {
   createdAt    DateTime    @default(now()) @map("created_at")
   workspaces   Workspace[]
   tasks        Task[]      @relation("UserTasks")
+  taskAssignments TaskAssignee[]
 
   @@map("users")
 }
@@ -92,6 +93,18 @@ enum Priority {
   critical
 }
 
+model TaskAssignee {
+  taskId    String   @map("task_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+  @@index([userId])
+  @@map("task_assignees")
+}
+
 model Task {
   id          String    @id @default(uuid())
   boardId     String    @map("board_id")
@@ -111,6 +124,7 @@ model Task {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   tags        Tag[]     @relation("TaskTags")
+  assignees   TaskAssignee[]
 
   @@index([boardId])
   @@index([groupId])

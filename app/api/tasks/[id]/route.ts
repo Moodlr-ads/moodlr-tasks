@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
 type TagPayload = string[] | undefined;
+type AssigneePayload = string[] | undefined;
 
 function toUtcMidday(dateStr?: string | null) {
   if (!dateStr) return null;
@@ -22,6 +23,15 @@ async function validateTagIds(tagIds: TagPayload, workspaceId: string) {
   return existing.map((t) => t.id);
 }
 
+async function validateAssigneeIds(assigneeIds: AssigneePayload) {
+  if (!assigneeIds || !assigneeIds.length) return [];
+  const existing = await prisma.user.findMany({
+    where: { id: { in: assigneeIds } },
+    select: { id: true },
+  });
+  return existing.map((u) => u.id);
+}
+
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -35,7 +45,6 @@ export async function PUT(
     const { id } = await params;
     const data = await req.json();
 
-    // Build the payload explicitly to avoid sending unknown fields (e.g. statusId/tagIds)
     const updateData: any = {};
     if ("title" in data) updateData.title = data.title;
     if ("description" in data) updateData.description = data.description;
@@ -43,7 +52,6 @@ export async function PUT(
     if ("order" in data) updateData.order = data.order;
     if ("groupId" in data) updateData.groupId = data.groupId;
 
-    // ✅ Permite atualizar/limpar datas corretamente
     if ("startDate" in data) {
       updateData.startDate =
         "startDate" in data ? toUtcMidday(data.startDate) : undefined;
@@ -77,21 +85,35 @@ export async function PUT(
       }
     }
 
-    if ("assigneeId" in data) {
-      if (!data.assigneeId) {
-        updateData.assignee = { disconnect: true };
-      } else {
-        updateData.assignee = { connect: { id: data.assigneeId } };
-      }
+    if (Array.isArray(data.assigneeIds) || "assigneeId" in data) {
+      const requestedAssignees = Array.isArray(data.assigneeIds)
+        ? data.assigneeIds
+        : data.assigneeId === null
+          ? []
+          : data.assigneeId
+            ? [data.assigneeId]
+            : [];
+      const sanitizedAssignees = await validateAssigneeIds(
+        Array.from(new Set(requestedAssignees)),
+      );
+      updateData.assigneeId = sanitizedAssignees[0] ?? null;
+      updateData.assignees = {
+        deleteMany: {},
+        create: sanitizedAssignees.map((assigneeId: string) => ({
+          user: { connect: { id: assigneeId } },
+        })),
+      };
     }
 
     const task = await prisma.task.update({
       where: { id },
       data: updateData,
       include: {
-        // ✅ FIX: incluir image do assignee
         assignee: {
           select: { id: true, name: true, email: true, image: true },
+        },
+        assignees: {
+          include: { user: { select: { id: true, name: true, email: true, image: true } } },
         },
         tags: true,
       },
