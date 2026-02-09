@@ -16,8 +16,9 @@ function toUtcMidday(dateStr?: string | null) {
 
 async function validateTagIds(tagIds: TagPayload, workspaceId: string) {
   if (!tagIds || !tagIds.length) return [];
+  const unique = Array.from(new Set(tagIds));
   const existing = await prisma.tag.findMany({
-    where: { id: { in: tagIds }, workspaceId },
+    where: { id: { in: unique }, workspaceId },
     select: { id: true },
   });
   return existing.map((t) => t.id);
@@ -25,8 +26,9 @@ async function validateTagIds(tagIds: TagPayload, workspaceId: string) {
 
 async function validateAssigneeIds(assigneeIds: AssigneePayload) {
   if (!assigneeIds || !assigneeIds.length) return [];
+  const unique = Array.from(new Set(assigneeIds));
   const existing = await prisma.user.findMany({
-    where: { id: { in: assigneeIds } },
+    where: { id: { in: unique } },
     select: { id: true },
   });
   return existing.map((u) => u.id);
@@ -34,7 +36,7 @@ async function validateAssigneeIds(assigneeIds: AssigneePayload) {
 
 export async function PUT(
   req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: { id: string } },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -42,7 +44,7 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
+    const { id } = params;
     const data = await req.json();
 
     const updateData: any = {};
@@ -66,15 +68,19 @@ export async function PUT(
         where: { id },
         select: { board: { select: { workspaceId: true } } },
       });
-      if (taskBoard) {
-        const sanitizedTagIds = await validateTagIds(
-          data.tagIds,
-          taskBoard.board.workspaceId,
+      if (!taskBoard?.board?.workspaceId) {
+        return NextResponse.json(
+          { error: "Task or workspace not found" },
+          { status: 404 },
         );
-        updateData.tags = {
-          set: sanitizedTagIds.map((tagId: string) => ({ id: tagId })),
-        };
       }
+      const sanitizedTagIds = await validateTagIds(
+        data.tagIds,
+        taskBoard.board.workspaceId,
+      );
+      updateData.tags = {
+        set: sanitizedTagIds.map((tagId: string) => ({ id: tagId })),
+      };
     }
 
     if ("statusId" in data) {
@@ -93,15 +99,14 @@ export async function PUT(
           : data.assigneeId
             ? [data.assigneeId]
             : [];
-      const sanitizedAssignees = await validateAssigneeIds(
-        Array.from(new Set(requestedAssignees)),
-      );
+      const sanitizedAssignees = await validateAssigneeIds(requestedAssignees);
       updateData.assigneeId = sanitizedAssignees[0] ?? null;
+      const assigneeCreates = sanitizedAssignees.map((assigneeId: string) => ({
+        user: { connect: { id: assigneeId } },
+      }));
       updateData.assignees = {
         deleteMany: {},
-        create: sanitizedAssignees.map((assigneeId: string) => ({
-          user: { connect: { id: assigneeId } },
-        })),
+        ...(assigneeCreates.length ? { create: assigneeCreates } : {}),
       };
     }
 
@@ -131,7 +136,7 @@ export async function PUT(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: { id: string } },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -139,7 +144,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
+    const { id } = params;
     await prisma.task.delete({
       where: { id },
     });
