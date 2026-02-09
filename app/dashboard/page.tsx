@@ -81,6 +81,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type TouchEvent,
 } from "react";
 import { toast } from "sonner";
 import { Check } from "lucide-react";
@@ -158,21 +159,25 @@ const TAG_LIMIT = 5;
 const uniq = (arr: string[]) => Array.from(new Set(arr));
 const uniqTags = (arr: Tag[]) =>
   Array.from(new Map(arr.map((t) => [t.id, t])).values());
-const normalizeTask = (task: any): Task => {
-  const firstAssignee = task.assignees?.[0]?.user ?? null;
-  return {
-    ...task,
-    assignee: firstAssignee,
-    assigneeId: firstAssignee?.id ?? null,
-    assignees: task.assignees ?? [],
-  };
-};
 
 const priorityConfig: Record<string, { label: string; color: string }> = {
   low: { label: "Low", color: "#22c55e" },
   medium: { label: "Medium", color: "#eab308" },
   high: { label: "High", color: "#f97316" },
   critical: { label: "Critical", color: "#ef4444" },
+};
+
+const normalizeTask = (task: any): Task => {
+  const assignees = Array.isArray(task?.assignees) ? task.assignees : [];
+  const primaryAssignee = task?.assignee ?? assignees[0]?.user ?? null;
+
+  return {
+    ...task,
+    assignees,
+    assignee: primaryAssignee,
+    assigneeId: task?.assigneeId ?? primaryAssignee?.id ?? null,
+    tags: task?.tags ?? [],
+  };
 };
 
 const emojiOptions = [
@@ -334,6 +339,166 @@ const UserAvatar = ({
   );
 };
 
+const getAssigneeIds = (task: Task) =>
+  uniq([
+    ...(task.assignees?.map((a) => a.user.id) ?? []),
+    ...(task.assigneeId ? [task.assigneeId] : []),
+  ]);
+
+const AssigneePicker = ({
+  users,
+  selectedIds,
+  onChange,
+  align = "start",
+  triggerClassName,
+  emptyLabel = "Unassigned",
+  single = false,
+}: {
+  users: User[];
+  selectedIds: string[];
+  onChange: (next: string[]) => void;
+  align?: "start" | "center" | "end";
+  triggerClassName?: string;
+  emptyLabel?: string;
+  single?: boolean;
+}) => {
+  const selected = users.filter((u) => selectedIds.includes(u.id));
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn(
+            "w-full justify-start h-10 px-3 bg-background border-border text-foreground",
+            triggerClassName,
+          )}
+        >
+          <div className="flex items-center gap-2 overflow-hidden">
+            {selected.length ? (
+              <>
+                {single ? (
+                  <>
+                    <UserAvatar
+                      src={selected[0].image || undefined}
+                      name={selected[0].name}
+                      className="h-6 w-6 border-2 border-background"
+                    />
+                    <span className="text-sm truncate">{selected[0].name}</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex -space-x-2">
+                      {selected.slice(0, 3).map((u) => (
+                        <UserAvatar
+                          key={u.id}
+                          src={u.image || undefined}
+                          name={u.name}
+                          className="h-6 w-6 border-2 border-background"
+                        />
+                      ))}
+                      {selected.length > 3 && (
+                        <span className="text-[11px] text-muted-foreground ml-2">
+                          +{selected.length - 3}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-sm truncate">
+                      {selected.map((u) => u.name).join(", ")}
+                    </span>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <UserAvatar />
+                <span className="text-sm text-muted-foreground">
+                  {emptyLabel}
+                </span>
+              </>
+            )}
+          </div>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72" align={align}>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium text-muted-foreground">
+            Assignees
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={() => onChange([])}
+            disabled={!selectedIds.length}
+          >
+            Clear
+          </Button>
+        </div>
+        <div className="flex flex-col gap-1 max-h-64 overflow-y-auto pr-1">
+          <button
+            type="button"
+            onClick={() => onChange([])}
+            className={cn(
+              "flex items-center gap-2 px-2 py-1.5 rounded border text-left transition",
+              selectedIds.length === 0
+                ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                : "border-transparent hover:bg-muted/50",
+            )}
+          >
+            <Check
+              className={cn(
+                "h-4 w-4 text-indigo-600",
+                selectedIds.length === 0 ? "" : "opacity-0",
+              )}
+            />
+            <UserAvatar />
+            <span className="text-sm">{emptyLabel}</span>
+          </button>
+          {users.map((u) => {
+            const checked = selectedIds.includes(u.id);
+            return (
+              <button
+                key={u.id}
+                type="button"
+                onClick={() => {
+                  const next = checked
+                    ? selectedIds.filter((id) => id !== u.id)
+                    : single
+                      ? [u.id]
+                      : uniq([...selectedIds, u.id]);
+                  onChange(next);
+                }}
+                className={cn(
+                  "flex items-center gap-2 px-2 py-1.5 rounded border text-left transition",
+                  checked
+                    ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                    : "border-transparent hover:bg-muted/50",
+                )}
+              >
+                <Check
+                  className={cn(
+                    "h-4 w-4 text-indigo-600",
+                    checked ? "" : "opacity-0",
+                  )}
+                />
+                <UserAvatar src={u.image || undefined} name={u.name} />
+                <span className="text-sm">{u.name}</span>
+              </button>
+            );
+          })}
+          {!users.length && (
+            <span className="text-sm text-muted-foreground">
+              No users available
+            </span>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 const TASK_GRID =
   "grid gap-x-3 gap-y-3 grid-cols-[minmax(260px,1.5fr)_150px_110px_220px_180px_140px_140px_60px] items-center";
 const TABLE_MIN_WIDTH = "min-w-[1250px] xl:min-w-[1350px]";
@@ -351,13 +516,17 @@ export default function DashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatusId, setFilterStatusId] = useState<string>("");
-  const [filterPriority, setFilterPriority] = useState<string>("");
+  const [filterStatusIds, setFilterStatusIds] = useState<string[]>([]);
+  const [filterPriorities, setFilterPriorities] = useState<string[]>([]);
   const [filterAssigneeIds, setFilterAssigneeIds] = useState<string[]>([]);
   const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const touchStartRef = useRef<number | null>(null);
+  const touchDeltaRef = useRef<number>(0);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const assigneeRequestRef = useRef<Record<string, number>>({});
 
   // Dialog states
   const [showNewWorkspace, setShowNewWorkspace] = useState(false);
@@ -504,7 +673,10 @@ export default function DashboardPage() {
       } else {
         setTags([]);
       }
-      if (taskRes.ok) setTasks((await taskRes.json()).map(normalizeTask));
+      if (taskRes.ok) {
+        const data = await taskRes.json();
+        setTasks(data.map((t: any) => normalizeTask(t)));
+      }
     } catch {
       toast.error("Failed to load board data");
     }
@@ -836,6 +1008,42 @@ export default function DashboardPage() {
     fetchProfile();
   }, [fetchProfile]);
 
+  useEffect(() => {
+    const updateViewport = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      setSidebarOpen(!mobile);
+    };
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
+
+  const handleSidebarTouchStart = (e: TouchEvent) => {
+    if (!isMobile || !sidebarOpen) return;
+    touchStartRef.current = e.touches[0].clientX;
+    touchDeltaRef.current = 0;
+  };
+
+  const handleSidebarTouchMove = (e: TouchEvent) => {
+    if (touchStartRef.current === null) return;
+    const delta = e.touches[0].clientX - touchStartRef.current;
+    touchDeltaRef.current = delta;
+  };
+
+  const handleSidebarTouchEnd = () => {
+    if (!isMobile || !sidebarOpen) {
+      touchStartRef.current = null;
+      touchDeltaRef.current = 0;
+      return;
+    }
+    if (touchDeltaRef.current < -60) {
+      setSidebarOpen(false);
+    }
+    touchStartRef.current = null;
+    touchDeltaRef.current = 0;
+  };
+
   const handleAvatarUpload = async (file: File) => {
     try {
       setAvatarUploading(true);
@@ -930,15 +1138,32 @@ export default function DashboardPage() {
       );
       setTasks((prev) =>
         prev.map((t) =>
-          t.assignee?.id === updated.id
+          t.assignee?.id === updated.id ||
+          t.assignees?.some((a) => a.user.id === updated.id)
             ? {
                 ...t,
-                assignee: {
-                  ...t.assignee,
-                  name: updated.name,
-                  email: updated.email,
-                  image: updated.image,
-                },
+                assignee:
+                  t.assignee?.id === updated.id
+                    ? {
+                        ...t.assignee,
+                        name: updated.name,
+                        email: updated.email,
+                        image: updated.image,
+                      }
+                    : t.assignee,
+                assignees: t.assignees?.map((a) =>
+                  a.user.id === updated.id
+                    ? {
+                        ...a,
+                        user: {
+                          ...a.user,
+                          name: updated.name,
+                          email: updated.email,
+                          image: updated.image,
+                        },
+                      }
+                    : a,
+                ),
               }
             : t,
         ),
@@ -965,6 +1190,17 @@ export default function DashboardPage() {
       fetchBoardData(selectedBoard.id, selectedWorkspace?.id);
     }
   }, [selectedBoard, selectedWorkspace?.id, fetchBoardData]);
+
+  useEffect(() => {
+    setFilterStatusIds([]);
+    setFilterPriorities([]);
+    setFilterAssigneeIds([]);
+    setFilterTagIds([]);
+  }, [selectedBoard?.id]);
+
+  useEffect(() => {
+    setFilterTagIds((prev) => prev.filter((id) => usedTagIds.has(id)));
+  }, [tasks]);
 
   // Create workspace
   const handleCreateWorkspace = async () => {
@@ -1200,19 +1436,19 @@ export default function DashboardPage() {
           tagIds: newTaskTagIds.slice(0, TAG_LIMIT),
         }),
       });
-    if (res.ok) {
-      const task = await res.json();
-      setTasks((prev) => [...prev, task]);
-      setNewTaskTitle("");
-      setNewTaskDesc("");
-      setNewTaskPriority("medium");
-      setNewTaskStatusId("");
-      setNewTaskTagIds([]);
-      setNewTaskAssigneeIds([]);
-      setNewTaskDueDate("");
-      setNewTaskStartDate("");
-      setShowNewTask(false);
-      toast.success("Task created");
+      if (res.ok) {
+        const task = normalizeTask(await res.json());
+        setTasks((prev) => [...prev, task]);
+        setNewTaskTitle("");
+        setNewTaskDesc("");
+        setNewTaskPriority("medium");
+        setNewTaskStatusId("");
+        setNewTaskTagIds([]);
+        setNewTaskAssigneeIds([]);
+        setNewTaskDueDate("");
+        setNewTaskStartDate("");
+        setShowNewTask(false);
+        toast.success("Task created");
       }
     } catch {
       toast.error("Failed to create task");
@@ -1228,8 +1464,9 @@ export default function DashboardPage() {
         body: JSON.stringify({ statusId }),
       });
       if (res.ok) {
+        const updated = normalizeTask(await res.json());
         setTasks((prev) =>
-          prev.map((t) => (t.id === taskId ? { ...t, statusId } : t)),
+          prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
         );
       }
     } catch {
@@ -1254,20 +1491,64 @@ export default function DashboardPage() {
     taskId: string,
     assigneeIds: string[],
   ) => {
+    const nextAssignees = uniq(assigneeIds);
+    const reqId =
+      (assigneeRequestRef.current[taskId] ?? 0) + 1;
+    assigneeRequestRef.current[taskId] = reqId;
+    const prev = tasks.map((t) => ({
+      ...t,
+      assignees: t.assignees ? [...t.assignees] : undefined,
+      assignee: t.assignee ? { ...t.assignee } : null,
+    }));
+    setTasks((prevTasks) =>
+      prevTasks.map((t) =>
+        t.id === taskId
+          ? {
+              ...t,
+              assignees: nextAssignees.map((id) => {
+                const user = users.find((u) => u.id === id);
+                return user
+                  ? {
+                      user: {
+                        ...user,
+                      },
+                    }
+                  : null;
+              }).filter(Boolean) as { user: User }[],
+              assignee: users.find((u) => u.id === nextAssignees[0]) ?? null,
+              assigneeId: nextAssignees[0] ?? null,
+            }
+          : t,
+      ),
+    );
     try {
       const res = await fetch(`/api/tasks/${taskId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assigneeIds }),
+        body: JSON.stringify({ assigneeIds: nextAssignees }),
       });
       if (res.ok) {
         const updated = normalizeTask(await res.json());
-        setTasks((prev) =>
-          prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
-        );
-        toast.success("Assignees updated");
+        if (assigneeRequestRef.current[taskId] === reqId) {
+          setTasks((prev) =>
+            prev.map((t) =>
+              t.id === taskId
+                ? {
+                    ...t,
+                    ...updated,
+                    assigneeId: updated.assigneeId ?? null,
+                    assignee: updated.assignee ?? null,
+                    assignees: updated.assignees ?? [],
+                  }
+                : t,
+            ),
+          );
+        }
       }
     } catch {
+      if (assigneeRequestRef.current[taskId] === reqId) {
+        setTasks(prev);
+      }
       toast.error("Failed to update assignees");
     }
   };
@@ -1292,7 +1573,7 @@ export default function DashboardPage() {
         body: JSON.stringify({ startDate: startDate || null }),
       });
       if (res.ok) {
-        const updated = await res.json();
+        const updated = normalizeTask(await res.json());
         setTasks((prev) =>
           prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
         );
@@ -1319,7 +1600,7 @@ export default function DashboardPage() {
         body: JSON.stringify({ dueDate: dueDate || null }),
       });
       if (res.ok) {
-        const updated = await res.json();
+        const updated = normalizeTask(await res.json());
         setTasks((prev) =>
           prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
         );
@@ -1338,10 +1619,7 @@ export default function DashboardPage() {
         setEditTaskTagIds(
           uniq(task.tags?.map((t) => t.id).slice(0, TAG_LIMIT) || []),
         );
-    setEditTaskAssigneeIds(
-      task.assignees?.map((a) => a.user.id) ||
-        (task.assigneeId ? [task.assigneeId] : []),
-    );
+    setEditTaskAssigneeIds(getAssigneeIds(task));
     setEditTaskStartDate(formatDateValue(task.startDate) || "");
     setEditTaskDueDate(formatDateValue(task.dueDate) || "");
   };
@@ -1399,7 +1677,7 @@ export default function DashboardPage() {
         body: JSON.stringify({ priority }),
       });
       if (res.ok) {
-        const updated = await res.json();
+        const updated = normalizeTask(await res.json());
         setTasks((prev) =>
           prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
         );
@@ -1422,14 +1700,66 @@ export default function DashboardPage() {
     }
   };
 
-  // Filter tasks by search
+  const hasActiveFilters =
+    filterStatusIds.length > 0 ||
+    filterPriorities.length > 0 ||
+    filterAssigneeIds.length > 0 ||
+    filterTagIds.length > 0;
+
+  const usedTagIds = new Set(
+    tasks.flatMap((t) => (t.tags ? t.tags.map((tag) => tag.id) : [])),
+  );
+  const filterableTags = tags.filter((tag) => usedTagIds.has(tag.id));
+
+  const toggleStatusFilter = (id: string) =>
+    setFilterStatusIds((prev) =>
+      prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id],
+    );
+
+  const togglePriorityFilter = (id: string) =>
+    setFilterPriorities((prev) =>
+      prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id],
+    );
+
+  const toggleTagFilter = (id: string) =>
+    setFilterTagIds((prev) =>
+      prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id],
+    );
+
+  const clearFilters = () => {
+    setFilterStatusIds([]);
+    setFilterPriorities([]);
+    setFilterAssigneeIds([]);
+    setFilterTagIds([]);
+  };
+
   const filteredTasks = [...tasks]
     .sort((a, b) => a.order - b.order)
-    .filter(
-      (t) =>
+    .filter((t) => {
+      const matchesSearch =
         t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (t.description || "").toLowerCase().includes(searchQuery.toLowerCase()),
-    );
+        (t.description || "")
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase());
+
+      if (!matchesSearch) return false;
+      if (filterStatusIds.length) {
+        if (!t.statusId || !filterStatusIds.includes(t.statusId)) return false;
+      }
+      if (filterPriorities.length) {
+        if (!filterPriorities.includes(t.priority)) return false;
+      }
+      if (filterAssigneeIds.length) {
+        const ids = getAssigneeIds(t);
+        if (!ids.some((id) => filterAssigneeIds.includes(id))) return false;
+      }
+      if (filterTagIds.length) {
+        const taskTagIds = (t.tags ?? []).map((tag) => tag.id);
+        if (!taskTagIds.some((id) => filterTagIds.includes(id))) return false;
+      }
+
+      return true;
+    });
 
   // Derived list view
   // (no grouping/drag-drop; status handled per-row select)
@@ -1443,13 +1773,21 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="h-screen flex bg-background text-foreground">
+    <div className="min-h-screen flex bg-background text-foreground relative">
       {/* Sidebar */}
-      <aside
-        className={`${
-          sidebarOpen ? "w-64" : "w-0 overflow-hidden"
-        } bg-card border-r border-border flex flex-col transition-all duration-200`}
-      >
+    <aside
+      className={cn(
+        "bg-card border-r border-border flex flex-col transition-transform duration-200",
+        isMobile
+          ? "fixed z-40 inset-y-0 left-0 w-64 transform"
+          : "relative w-64",
+        sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+      )}
+      style={{ touchAction: "pan-y" }}
+      onTouchStart={handleSidebarTouchStart}
+      onTouchMove={handleSidebarTouchMove}
+      onTouchEnd={handleSidebarTouchEnd}
+    >
         <div className="p-4 border-b border-border">
           <div className="flex items-center gap-2">
             <div className="bg-slate-900 dark:bg-transparent p-2 dark:p-0 rounded-md flex items-center justify-center">
@@ -1620,7 +1958,12 @@ export default function DashboardPage() {
                     }`}
                   >
                     <span>{ws.icon}</span>
-                    <span className="truncate">{ws.name}</span>
+                    <span
+                      className="truncate max-w-[150px] md:max-w-[200px]"
+                      title={ws.name}
+                    >
+                      {ws.name}
+                    </span>
                     {selectedWorkspace?.id === ws.id && (
                       <ChevronRight className="h-3 w-3 ml-auto text-slate-400" />
                     )}
@@ -1668,15 +2011,20 @@ export default function DashboardPage() {
                           onClick={() => {
                             setSelectedBoard(board);
                           }}
-                          className={`flex-1 flex items-center gap-2 px-2 py-1 rounded text-sm transition-colors ${
-                            selectedBoard?.id === board.id
-                              ? "bg-indigo-50 text-indigo-700 font-medium"
-                              : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-                          }`}
+                        className={`flex-1 flex items-center gap-2 px-2 py-1 rounded text-sm transition-colors ${
+                          selectedBoard?.id === board.id
+                            ? "bg-indigo-50 text-indigo-700 font-medium"
+                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                        }`}
+                      >
+                        <span className="text-xs">{board.icon}</span>
+                        <span
+                          className="truncate max-w-[150px] md:max-w-[200px]"
+                          title={board.name}
                         >
-                          <span className="text-xs">{board.icon}</span>
-                          <span className="truncate">{board.name}</span>
-                        </button>
+                          {board.name}
+                        </span>
+                      </button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <button
@@ -1779,10 +2127,16 @@ export default function DashboardPage() {
           </Button>
         </div>
       </aside>
+      {isMobile && sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-30"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
       {/* Edit Task Dialog */}
       <Dialog open={!!editingTask} onOpenChange={(open) => !open && setEditingTask(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl w-[95vw] sm:w-[640px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Task</DialogTitle>
           </DialogHeader>
@@ -1803,7 +2157,7 @@ export default function DashboardPage() {
                 className="mt-1"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>Status</Label>
                 <Select
@@ -1853,7 +2207,7 @@ export default function DashboardPage() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <TagListSelect
                 tags={tags}
                 selectedIds={editTaskTagIds}
@@ -1905,12 +2259,12 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Start date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                    <Button
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label>Start date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                <Button
                       variant="outline"
                       className="mt-1 w-full justify-start"
                     >
@@ -2022,48 +2376,52 @@ export default function DashboardPage() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 bg-background text-foreground">
         {/* Header */}
-        <header className="h-14 bg-card border-b border-border flex items-center px-4 gap-3 text-foreground">
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <LayoutDashboard className="h-5 w-5" />
-          </button>
+        <header className="bg-card border-b border-border flex flex-wrap items-center px-4 py-2 gap-3 text-foreground">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="text-muted-foreground hover:text-foreground"
+              aria-label="Toggle sidebar"
+            >
+              <LayoutDashboard className="h-5 w-5" />
+            </button>
 
-          {selectedBoard ? (
-            <>
-              <div className="flex items-center gap-2">
+            {selectedBoard ? (
+              <>
                 <span>{selectedBoard.icon}</span>
-                <h2 className="font-semibold text-slate-900 dark:text-slate-200">
+                <h2
+                  className="font-semibold text-slate-900 dark:text-slate-200 truncate max-w-[160px] sm:max-w-[260px]"
+                  title={selectedBoard.name}
+                >
                   {selectedBoard.name}
                 </h2>
-              </div>
-
-              <div className="flex-1 max-w-sm ml-4">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search tasks..."
-                    className="pl-9 h-8 text-sm bg-input border-border text-foreground placeholder:text-muted-foreground"
-                  />
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-end gap-3 ml-auto">
-              <h2 className="text-slate-500 mr-auto">
+              </>
+            ) : (
+              <h2 className="text-slate-500 text-sm">
                 Select a board to get started
               </h2>
+            )}
+          </div>
+
+          {selectedBoard && (
+            <div className="flex-1 min-w-[220px] sm:max-w-sm sm:ml-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search tasks..."
+                  className="pl-9 h-9 text-sm bg-input border-border text-foreground placeholder:text-muted-foreground"
+                />
+              </div>
             </div>
           )}
 
-          <div className="ml-auto flex items-center gap-3">
+          <div className="flex items-center gap-2 ml-auto w-full sm:w-auto justify-end">
             <Button
               variant="ghost"
               size="sm"
-              className="gap-2 text-muted-foreground hover:text-foreground"
+              className="gap-2 text-muted-foreground hover:text-foreground w-full sm:w-auto"
               onClick={() => setShowProfileModal(true)}
             >
               <UserAvatar
@@ -2077,30 +2435,31 @@ export default function DashboardPage() {
             </Button>
             <ThemeToggle />
             {selectedBoard && (
-              <Dialog open={showNewTask} onOpenChange={setShowNewTask}>
-                <DialogTrigger asChild>
-                  <Button
-                    size="sm"
-                    style={{ backgroundColor: "hsl(243, 75%, 59%)" }}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    New Task
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>New Task</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 pt-2">
-                    <div>
-                      <Label>Title</Label>
-                      <Input
-                        value={newTaskTitle}
-                        onChange={(e) => setNewTaskTitle(e.target.value)}
-                        placeholder="Task title"
-                        className="mt-1"
-                      />
-                    </div>
+            <Dialog open={showNewTask} onOpenChange={setShowNewTask}>
+              <DialogTrigger asChild>
+                <Button
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  style={{ backgroundColor: "hsl(243, 75%, 59%)" }}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  New Task
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl w-[95vw] sm:w-[640px] max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>New Task</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-2">
+                  <div>
+                    <Label>Title</Label>
+                    <Input
+                      value={newTaskTitle}
+                      onChange={(e) => setNewTaskTitle(e.target.value)}
+                      placeholder="Task title"
+                      className="mt-1"
+                    />
+                  </div>
                     <div>
                       <Label>Description (optional)</Label>
                       <Input
@@ -2110,7 +2469,7 @@ export default function DashboardPage() {
                         className="mt-1"
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <Label>Status</Label>
                         <Select
@@ -2173,7 +2532,7 @@ export default function DashboardPage() {
                   onNewTagNameChange={setNewTagName}
                   onCreate={handleCreateTag}
                 />
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <Label>Assignees (optional)</Label>
                         <div className="mt-2 flex flex-wrap gap-2">
@@ -2312,6 +2671,197 @@ export default function DashboardPage() {
           </div>
         </header>
 
+        {selectedBoard && (
+          <div className="border-b border-border bg-card/50 px-4 py-3 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] uppercase font-semibold text-muted-foreground">
+              Filters
+            </span>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9">
+                  Status{filterStatusIds.length ? ` (${filterStatusIds.length})` : ""}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-60" align="start">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    Status
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setFilterStatusIds([])}
+                    disabled={!filterStatusIds.length}
+                  >
+                    Clear
+                  </Button>
+                </div>
+                <div className="flex flex-col gap-1">
+                  {statuses.map((s) => {
+                    const checked = filterStatusIds.includes(s.id);
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => toggleStatusFilter(s.id)}
+                        className={cn(
+                          "flex items-center gap-2 px-2 py-1.5 rounded border text-left transition",
+                          checked
+                            ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                            : "border-transparent hover:bg-muted/50",
+                        )}
+                      >
+                        <Check
+                          className={cn(
+                            "h-4 w-4 text-indigo-600",
+                            checked ? "" : "opacity-0",
+                          )}
+                        />
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: s.color }}
+                        />
+                        <span className="text-sm">{s.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9">
+                  Priority{filterPriorities.length ? ` (${filterPriorities.length})` : ""}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56" align="start">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    Priority
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setFilterPriorities([])}
+                    disabled={!filterPriorities.length}
+                  >
+                    Clear
+                  </Button>
+                </div>
+                <div className="flex flex-col gap-1">
+                  {Object.entries(priorityConfig).map(([key, cfg]) => {
+                    const checked = filterPriorities.includes(key);
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => togglePriorityFilter(key)}
+                        className={cn(
+                          "flex items-center gap-2 px-2 py-1.5 rounded border text-left transition",
+                          checked
+                            ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                            : "border-transparent hover:bg-muted/50",
+                        )}
+                      >
+                        <Check
+                          className={cn(
+                            "h-4 w-4 text-indigo-600",
+                            checked ? "" : "opacity-0",
+                          )}
+                        />
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: cfg.color }}
+                        />
+                        <span className="text-sm">{cfg.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <div className="min-w-[220px] max-w-[280px]">
+        <AssigneePicker
+          users={users}
+          selectedIds={filterAssigneeIds}
+          onChange={(next) => setFilterAssigneeIds(next)}
+          triggerClassName="h-9"
+          single
+          emptyLabel="Any assignee"
+        />
+      </div>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9">
+                  Tags{filterTagIds.length ? ` (${filterTagIds.length})` : ""}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64" align="start">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    Tags
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setFilterTagIds([])}
+                    disabled={!filterTagIds.length}
+                  >
+                    Clear
+                  </Button>
+                </div>
+                <div className="flex flex-col gap-1 max-h-64 overflow-y-auto pr-1">
+                  {filterableTags.map((tag) => {
+                    const checked = filterTagIds.includes(tag.id);
+                    return (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() => toggleTagFilter(tag.id)}
+                        className={cn(
+                          "flex items-center gap-2 px-2 py-1.5 rounded border text-left transition",
+                          checked
+                            ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                            : "border-transparent hover:bg-muted/50",
+                        )}
+                      >
+                        <Check
+                          className={cn(
+                            "h-4 w-4 text-indigo-600",
+                            checked ? "" : "opacity-0",
+                          )}
+                        />
+                        <span className="text-sm">{tag.name}</span>
+                      </button>
+                    );
+                  })}
+                  {!filterableTags.length && (
+                    <span className="text-sm text-muted-foreground">
+                      No tags on tasks
+                    </span>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              disabled={!hasActiveFilters}
+            >
+              Clear filters
+            </Button>
+          </div>
+        )}
+
         {/* Board Content */}
         <div className="flex-1 overflow-auto p-1 sm:p-2 md:p-3 lg:p-4">
           {selectedBoard ? (
@@ -2365,24 +2915,27 @@ export default function DashboardPage() {
                         items={filteredTasks.map((t) => t.id)}
                         strategy={verticalListSortingStrategy}
                       >
-                        <div className={`${TABLE_MIN_WIDTH}`}>
-                          {filteredTasks.map((task, idx) => (
-                            <SortableTaskRow
-                              key={task.id}
-                              rowIndex={idx}
-                              task={task}
-                              statuses={statuses}
-                              users={users}
-                              onStatusChange={handleUpdateTaskStatus}
-                              onDelete={handleDeleteTask}
-                              onAssigneeChange={handleUpdateTaskAssignee}
-                              onStartDateChange={handleUpdateTaskStartDate}
-                              onDueDateChange={handleUpdateTaskDueDate}
-                              onPriorityChange={handleUpdateTaskPriority}
-                              onEditTask={beginEditTask}
-                            />
-                          ))}
-                        </div>
+            <div className={`${TABLE_MIN_WIDTH}`}>
+              {filteredTasks.map((task, idx) => (
+                <SortableTaskRow
+                  key={task.id}
+                  rowIndex={idx}
+                  task={task}
+                  statuses={statuses}
+                  users={users}
+                  onStatusChange={handleUpdateTaskStatus}
+                  onDelete={handleDeleteTask}
+                  onAssigneeChange={handleUpdateTaskAssignees}
+                  onStartDateChange={handleUpdateTaskStartDate}
+                  onDueDateChange={handleUpdateTaskDueDate}
+                  onPriorityChange={handleUpdateTaskPriority}
+                  onEditTask={beginEditTask}
+                  tagFilters={filterTagIds}
+                  onTagFilter={toggleTagFilter}
+                  assigneeMode="multi"
+                />
+              ))}
+            </div>
                       </SortableContext>
                     </DndContext>
                   )}
@@ -2399,10 +2952,7 @@ export default function DashboardPage() {
                   filteredTasks.map((task) => {
                     const priority = priorityConfig[task.priority];
                     const status = statuses.find((s) => s.id === task.statusId);
-                    const assignee = task.assignee;
-                    const assigneeImage = (assignee as any)?.image as
-                      | string
-                      | undefined;
+                    const assigneeIds = getAssigneeIds(task);
 
                     return (
                       <div
@@ -2477,68 +3027,56 @@ export default function DashboardPage() {
                             <Label className="text-[11px] text-muted-foreground">
                               Tags
                             </Label>
-                            <div className="text-[15px] font-medium text-foreground min-w-0 truncate">
+                            <div className="flex flex-wrap gap-1">
                               {task.tags && task.tags.length > 0 ? (
-                                <span>
-                                  {task.tags
-                                    .slice(0, 3)
-                                    .map((tag) => tag.name)
-                                    .join(", ")}
-                                  {task.tags.length > 3 && (
-                                    <span className="text-muted-foreground">
-                                      , +{task.tags.length - 3}
+                                <>
+                                  {task.tags.slice(0, 4).map((tag) => {
+                                    const active = filterTagIds.includes(tag.id);
+                                    return (
+                                      <button
+                                        key={tag.id}
+                                        type="button"
+                                        onClick={() => toggleTagFilter(tag.id)}
+                                        className={cn(
+                                          "px-2 py-0.5 rounded-full border text-xs",
+                                          active
+                                            ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                                            : "bg-muted/50 border-border text-foreground",
+                                        )}
+                                      >
+                                        {tag.name}
+                                      </button>
+                                    );
+                                  })}
+                                  {task.tags.length > 4 && (
+                                    <span className="text-muted-foreground text-xs">
+                                      +{task.tags.length - 4}
                                     </span>
                                   )}
-                                </span>
+                                </>
                               ) : (
-                                <span className="text-muted-foreground">-</span>
+                                <span className="text-muted-foreground text-xs">
+                                  -
+                                </span>
                               )}
                             </div>
                           </div>
 
                           <div className="flex items-center gap-2">
                             <Label className="text-[11px] text-muted-foreground">
-                              Assignee
+                              Assignees
                             </Label>
-                            <Select
-                              value={task.assigneeId ?? "unassigned"}
-                              onValueChange={(val) =>
-                                handleUpdateTaskAssignee(
-                                  task.id,
-                                  val === "unassigned" ? null : val,
-                                )
-                              }
-                            >
-                              <SelectTrigger className="h-10 w-full max-w-[220px]">
-                                <div className="flex items-center gap-2.5">
-                                  <UserAvatar
-                                    src={assigneeImage || undefined}
-                                    name={assignee?.name}
-                                    className="h-6 w-6"
-                                  />
-                                  <span className="text-sm text-foreground truncate">
-                                    {assignee ? assignee.name : "Unassigned"}
-                                  </span>
-                                </div>
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="unassigned">
-                                  Unassigned
-                                </SelectItem>
-                                {users.map((u) => (
-                                  <SelectItem key={u.id} value={u.id}>
-                                    <div className="flex items-center gap-2.5">
-                                      <UserAvatar
-                                        src={u.image || undefined}
-                                        name={u.name}
-                                        className="h-6 w-6"
-                                      />
-                                      <span>{u.name}</span>
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <div className="flex-1">
+                              <AssigneePicker
+                                users={users}
+                                selectedIds={assigneeIds}
+                                onChange={(next) =>
+                                  handleUpdateTaskAssignees(task.id, next)
+                                }
+                                triggerClassName="max-w-[240px]"
+                                align="end"
+                              />
+                            </div>
                           </div>
 
                           <div className="flex items-center gap-2">
@@ -3107,6 +3645,7 @@ type RowProps = {
   task: Task;
   statuses: Status[];
   users: User[];
+  assigneeMode?: "single" | "multi";
   onStatusChange: (taskId: string, statusId: string) => void;
   onDelete: (taskId: string) => void;
   onAssigneeChange: (taskId: string, assigneeIds: string[]) => void;
@@ -3114,6 +3653,8 @@ type RowProps = {
   onDueDateChange: (taskId: string, dueDate: string) => void;
   onPriorityChange: (taskId: string, priority: Task["priority"]) => void;
   onEditTask: (task: Task) => void;
+  tagFilters: string[];
+  onTagFilter: (tagId: string) => void;
 };
 
 const DateCell = ({
@@ -3195,6 +3736,7 @@ function SortableTaskRow({
   task,
   statuses,
   users,
+  assigneeMode = "multi",
   onStatusChange,
   onDelete,
   onAssigneeChange,
@@ -3202,13 +3744,12 @@ function SortableTaskRow({
   onDueDateChange,
   onPriorityChange,
   onEditTask,
+  tagFilters,
+  onTagFilter,
 }: RowProps) {
   const priority = priorityConfig[task.priority];
   const status = statuses.find((s) => s.id === task.statusId);
-  const assignee =
-        task.assignee ||
-    (task.assigneeId ? users.find((u) => u.id === task.assigneeId) : null);
-  const assigneeImage = (assignee as any)?.image as string | undefined;
+  const assigneeIds = getAssigneeIds(task);
 
   const {
     attributes,
@@ -3306,15 +3847,31 @@ function SortableTaskRow({
         </Select>
       </div>
 
-      <div className="flex items-center justify-center text-[15px] font-semibold text-foreground min-w-0 text-center">
+      <div className="flex items-center justify-center min-w-0">
         {task.tags && task.tags.length > 0 ? (
-          <div className="truncate">
-            {task.tags
-              .slice(0, 3)
-              .map((tag) => tag.name)
-              .join(", ")}
-            {task.tags.length > 3 && (
-              <span className="text-muted-foreground">, +{task.tags.length - 3}</span>
+          <div className="flex flex-wrap gap-1 justify-center">
+            {task.tags.slice(0, 4).map((tag) => {
+              const active = tagFilters.includes(tag.id);
+              return (
+                <button
+                  key={tag.id}
+                  type="button"
+                  onClick={() => onTagFilter(tag.id)}
+                  className={cn(
+                    "px-2 py-0.5 rounded-full border text-xs transition",
+                    active
+                      ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                      : "bg-muted/40 border-border text-foreground hover:bg-muted",
+                  )}
+                >
+                  {tag.name}
+                </button>
+              );
+            })}
+            {task.tags.length > 4 && (
+              <span className="text-muted-foreground text-xs">
+                +{task.tags.length - 4}
+              </span>
             )}
           </div>
         ) : (
@@ -3323,49 +3880,13 @@ function SortableTaskRow({
       </div>
 
       <div className="flex items-center justify-center min-w-0">
-        <Select
-          value={task.assigneeId ?? "unassigned"}
-          onValueChange={(val) =>
-            onAssigneeChange(
-              task.id,
-              val === "unassigned" ? [] : [val],
-            )
-          }
-        >
-          <SelectTrigger className="w-full max-w-[220px] h-10 px-3 min-w-0">
-            <div className="flex items-center gap-2.5">
-              {assignee ? (
-                <>
-                  <UserAvatar
-                    src={assigneeImage || undefined}
-                    name={assignee?.name}
-                  />
-                  <span className="text-sm text-foreground truncate">
-                    {assignee.name}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <UserAvatar />
-                  <span className="text-sm text-foreground truncate">
-                    Unassigned
-                  </span>
-                </>
-              )}
-            </div>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="unassigned">Unassigned</SelectItem>
-            {users.map((u) => (
-              <SelectItem key={u.id} value={u.id}>
-                <div className="flex items-center gap-2.5">
-                  <UserAvatar src={u.image || undefined} name={u.name} />
-                  <span>{u.name}</span>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <AssigneePicker
+          users={users}
+          selectedIds={assigneeIds}
+          onChange={(next) => onAssigneeChange(task.id, next)}
+          single={assigneeMode === "single"}
+          triggerClassName="max-w-[240px]"
+        />
       </div>
 
       <div className="flex justify-center min-w-0">
@@ -3427,3 +3948,12 @@ function SortableTaskRow({
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
