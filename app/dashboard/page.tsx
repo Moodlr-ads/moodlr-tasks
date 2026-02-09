@@ -1277,6 +1277,9 @@ export default function DashboardPage() {
     }
   };
 
+  // Backward-compatible alias to match previous prop name
+  const handleUpdateTaskAssignee = handleUpdateTaskAssignees;
+
   const handleUpdateTaskStartDate = async (
     taskId: string,
     startDate: string,
