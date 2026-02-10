@@ -100,7 +100,9 @@ export async function GET(req: Request) {
             user: { select: { id: true, name: true, email: true, image: true } },
           },
         },
-        tags: true,
+        tags: {
+          where: { deletedAt: null },
+        },
       },
     });
 
@@ -212,10 +214,13 @@ export async function POST(req: Request) {
         startDate: start,
         dueDate: due,
         order: nextOrder,
-        assigneeId: sanitizedAssignees[0] ?? null,
+        assigneeId:
+          sanitizedAssignees[0] !== undefined ? sanitizedAssignees[0] : null,
         tags:
           sanitizedTagIds.length > 0
-            ? { connect: sanitizedTagIds.map((id: string) => ({ id })) }
+            ? {
+                connect: sanitizedTagIds.map((id: string) => ({ id })),
+              }
             : undefined,
         assignees:
           sanitizedAssignees.length > 0

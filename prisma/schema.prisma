@@ -142,6 +142,7 @@ model Tag {
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   tasks       Task[]    @relation("TaskTags")
   createdAt   DateTime  @default(now()) @map("created_at")
+  deletedAt   DateTime? @map("deleted_at")
 
   @@unique([workspaceId, name])
   @@map("tags")

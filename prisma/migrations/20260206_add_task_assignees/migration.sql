@@ -31,8 +31,16 @@ BEGIN
 END$$;
 
 -- Backfill from legacy assignee_id if present
-INSERT INTO "task_assignees" ("task_id", "user_id", "created_at")
-SELECT t.id, t.assignee_id, COALESCE(t.updated_at, t.created_at, NOW())
-FROM tasks t
-WHERE t.assignee_id IS NOT NULL
-ON CONFLICT ("task_id","user_id") DO NOTHING;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'tasks' AND column_name = 'assignee_id'
+  ) THEN
+    INSERT INTO "task_assignees" ("task_id", "user_id", "created_at")
+    SELECT t.id, t.assignee_id, COALESCE(t.updated_at, t.created_at, NOW())
+    FROM tasks t
+    WHERE t.assignee_id IS NOT NULL
+    ON CONFLICT ("task_id","user_id") DO NOTHING;
+  END IF;
+END$$;

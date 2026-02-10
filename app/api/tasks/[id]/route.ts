@@ -36,7 +36,7 @@ async function validateAssigneeIds(assigneeIds: AssigneePayload) {
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -44,7 +44,7 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const data = await req.json();
 
     const updateData: any = {};
@@ -100,7 +100,10 @@ export async function PUT(
             ? [data.assigneeId]
             : [];
       const sanitizedAssignees = await validateAssigneeIds(requestedAssignees);
-      updateData.assigneeId = sanitizedAssignees[0] ?? null;
+      updateData.assignee =
+        sanitizedAssignees[0] !== undefined
+          ? { connect: { id: sanitizedAssignees[0] } }
+          : { disconnect: true };
       const assigneeCreates = sanitizedAssignees.map((assigneeId: string) => ({
         user: { connect: { id: assigneeId } },
       }));
@@ -120,7 +123,9 @@ export async function PUT(
         assignees: {
           include: { user: { select: { id: true, name: true, email: true, image: true } } },
         },
-        tags: true,
+        tags: {
+          where: { deletedAt: null },
+        },
       },
     });
 
@@ -136,7 +141,7 @@ export async function PUT(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -144,7 +149,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     await prisma.task.delete({
       where: { id },
     });
