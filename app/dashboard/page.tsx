@@ -720,15 +720,13 @@ const toggleEditTagSelection = (id: string) => {
         setBoards(data);
         if (data.length > 0 && !selectedBoard) {
           setSelectedBoard(data[0]);
+        } else if (data.length === 0) {
+          setBoardLoading(false);
         }
       }
     } catch {
       toast.error("Failed to load boards");
-    } finally {
-      // board data fetch will set to false once tasks arrive
-      if (!selectedBoard) {
-        setBoardLoading(false);
-      }
+      setBoardLoading(false);
     }
   }, []);
 
