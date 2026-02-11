@@ -589,7 +589,7 @@ export default function DashboardPage() {
   const [filterAssigneeIds, setFilterAssigneeIds] = useState<string[]>([]);
   const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [boardLoading, setBoardLoading] = useState(false);
+  const [boardLoading, setBoardLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showProfileModal, setShowProfileModal] = useState(false);
 
@@ -712,6 +712,7 @@ const toggleEditTagSelection = (id: string) => {
 
   // Fetch boards for workspace
   const fetchBoards = useCallback(async (workspaceId: string) => {
+    setBoardLoading(true);
     try {
       const res = await fetch(`/api/boards?workspace_id=${workspaceId}`);
       if (res.ok) {
@@ -723,6 +724,11 @@ const toggleEditTagSelection = (id: string) => {
       }
     } catch {
       toast.error("Failed to load boards");
+    } finally {
+      // board data fetch will set to false once tasks arrive
+      if (!selectedBoard) {
+        setBoardLoading(false);
+      }
     }
   }, []);
 
@@ -3081,11 +3087,6 @@ const toggleEditTagSelection = (id: string) => {
               {/* Tabela com scroll controlado (>=1200px) */}
               <div className="task-table-view">
                 <div className="relative bg-card border border-border rounded-lg shadow-sm w-full overflow-x-auto overflow-y-hidden nice-scrollbar tasks-scroll min-h-[60vh] px-1 sm:px-2">
-                  {boardLoading && (
-                    <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] flex items-center justify-center z-10">
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                    </div>
-                  )}
                   <div
                     className={`${TASK_GRID} ${TABLE_MIN_WIDTH} px-3 py-3 xl:px-5 xl:py-3.5 text-[11px] font-medium tracking-wide text-muted-foreground border-b border-white/5 items-center`}
                   >
@@ -3102,9 +3103,32 @@ const toggleEditTagSelection = (id: string) => {
                   </div>
 
                   {boardLoading ? (
-                    <div className="py-12 flex items-center justify-center text-muted-foreground text-sm">
-                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                      Loading tasks...
+                    <div className="py-10 flex flex-col items-center gap-4 text-sm text-primary">
+                      <div className="flex items-center gap-3 px-4 py-2 rounded-full border border-primary/40 bg-primary/5 shadow-lg">
+                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                        <span className="font-semibold tracking-wide">
+                          Carregando tasks...
+                        </span>
+                      </div>
+                      <div className="space-y-2 w-full">
+                        {[...Array(5)].map((_, idx) => (
+                          <div
+                            key={idx}
+                            className="animate-pulse rounded-md border border-border/60 bg-muted/40 shadow-sm"
+                          >
+                            <div className={`${TASK_GRID} ${TABLE_MIN_WIDTH} px-3 py-3 xl:px-5 xl:py-3.5 items-center`}>
+                              <div className="h-3 w-52 rounded bg-primary/15" />
+                              <div className="h-3 w-24 rounded bg-primary/12 justify-self-center" />
+                              <div className="h-3 w-20 rounded bg-primary/12 justify-self-center" />
+                              <div className="h-3 w-24 rounded bg-primary/12 justify-self-center" />
+                              <div className="h-3 w-24 rounded bg-primary/12" />
+                              <div className="h-3 w-24 rounded bg-primary/12" />
+                              <div className="h-3 w-24 rounded bg-primary/12" />
+                              <div className="h-3 w-16 rounded bg-primary/12 justify-self-end" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ) : filteredTasks.length === 0 ? (
                     <div className="py-12 text-center text-muted-foreground text-sm">
