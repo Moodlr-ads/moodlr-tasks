@@ -55,12 +55,10 @@ export async function PUT(
     if ("groupId" in data) updateData.groupId = data.groupId;
 
     if ("startDate" in data) {
-      updateData.startDate =
-        "startDate" in data ? toUtcMidday(data.startDate) : undefined;
+      updateData.startDate = toUtcMidday(data.startDate);
     }
     if ("dueDate" in data) {
-      updateData.dueDate =
-        "dueDate" in data ? toUtcMidday(data.dueDate) : undefined;
+      updateData.dueDate = toUtcMidday(data.dueDate);
     }
 
     if (Array.isArray(data.tagIds)) {
@@ -150,9 +148,8 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    await prisma.task.delete({
-      where: { id },
-    });
+    await prisma.taskAssignee.deleteMany({ where: { taskId: id } });
+    await prisma.task.delete({ where: { id } });
 
     return NextResponse.json({ message: "Task deleted" });
   } catch (error) {

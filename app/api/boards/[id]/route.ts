@@ -65,6 +65,16 @@ export async function DELETE(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
+    const taskIds = (
+      await prisma.task.findMany({
+        where: { boardId: id },
+        select: { id: true },
+      })
+    ).map((t) => t.id);
+
+    if (taskIds.length) {
+      await prisma.taskAssignee.deleteMany({ where: { taskId: { in: taskIds } } });
+    }
     await prisma.task.deleteMany({ where: { boardId: id } });
     await prisma.status.deleteMany({ where: { boardId: id } });
     await prisma.group.deleteMany({ where: { boardId: id } });

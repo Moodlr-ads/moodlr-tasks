@@ -11,6 +11,7 @@ export async function GET() {
     }
 
     const workspaces = await prisma.workspace.findMany({
+      where: { ownerId: session.user.id },
       orderBy: { createdAt: "desc" },
     });
 

@@ -42,8 +42,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { name, workspaceId } = await req.json();
-    const trimmed = name?.trim();
+    const body = await req.json();
+    const { workspaceId } = body;
+    const trimmed = body.name?.trim();
     if (!workspaceId || !trimmed) {
       return NextResponse.json(
         { error: "name and workspaceId are required" },
@@ -76,14 +77,6 @@ export async function POST(req: Request) {
     return NextResponse.json(tag, { status: 201 });
   } catch (error: any) {
     if (error.code === "P2002") {
-      // Como fallback, tenta retornar a tag existente
-      const { name, workspaceId } = await req.json().catch(() => ({}));
-      if (name && workspaceId) {
-        const found = await prisma.tag.findFirst({
-          where: { workspaceId, name: name.trim() },
-        });
-        if (found) return NextResponse.json(found, { status: 200 });
-      }
       return NextResponse.json(
         { error: "Tag already exists in this workspace" },
         { status: 400 },

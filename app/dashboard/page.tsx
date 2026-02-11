@@ -79,6 +79,7 @@ import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -678,32 +679,42 @@ const toggleEditTagSelection = (id: string) => {
   };
 
   // Fetch workspaces
-  const fetchWorkspaces = useCallback(async () => {
+  const fetchWorkspaces = useCallback(async (retries = 3) => {
     try {
       const res = await fetch("/api/workspaces");
-      if (res.ok) {
-        const data = await res.json();
-        setWorkspaces(data);
-        if (data.length === 0) {
-          // Seed demo data for new users
-          const seedRes = await fetch("/api/seed-demo-data", {
-            method: "POST",
-          });
-          if (seedRes.ok) {
-            const res2 = await fetch("/api/workspaces");
-            if (res2.ok) {
-              const data2 = await res2.json();
-              setWorkspaces(data2);
-              if (data2.length > 0) {
-                setSelectedWorkspace(data2[0]);
-              }
+      if (!res.ok) {
+        // Retry on server error or auth not ready (cold start)
+        if (retries > 0) {
+          await new Promise((r) => setTimeout(r, 1000));
+          return fetchWorkspaces(retries - 1);
+        }
+        return;
+      }
+      const data = await res.json();
+      setWorkspaces(data);
+      if (data.length === 0) {
+        // Seed demo data for new users
+        const seedRes = await fetch("/api/seed-demo-data", {
+          method: "POST",
+        });
+        if (seedRes.ok) {
+          const res2 = await fetch("/api/workspaces");
+          if (res2.ok) {
+            const data2 = await res2.json();
+            setWorkspaces(data2);
+            if (data2.length > 0) {
+              setSelectedWorkspace(data2[0]);
             }
           }
-        } else if (!selectedWorkspace) {
-          setSelectedWorkspace(data[0]);
         }
+      } else if (!selectedWorkspace) {
+        setSelectedWorkspace(data[0]);
       }
     } catch {
+      if (retries > 0) {
+        await new Promise((r) => setTimeout(r, 1000));
+        return fetchWorkspaces(retries - 1);
+      }
       toast.error("Failed to load workspaces");
     } finally {
       setLoading(false);
@@ -711,33 +722,51 @@ const toggleEditTagSelection = (id: string) => {
   }, []);
 
   // Fetch boards for workspace
-  const fetchBoards = useCallback(async (workspaceId: string) => {
+  const fetchBoards = useCallback(async (workspaceId: string, retries = 2) => {
     setBoardLoading(true);
     try {
       const res = await fetch(`/api/boards?workspace_id=${workspaceId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setBoards(data);
-        if (data.length > 0 && !selectedBoard) {
-          setSelectedBoard(data[0]);
-        } else if (data.length === 0) {
-          setBoardLoading(false);
+      if (!res.ok) {
+        if (retries > 0) {
+          await new Promise((r) => setTimeout(r, 800));
+          return fetchBoards(workspaceId, retries - 1);
         }
+        setBoardLoading(false);
+        return;
+      }
+      const data = await res.json();
+      setBoards(data);
+      if (data.length > 0 && !selectedBoard) {
+        setSelectedBoard(data[0]);
+      } else if (data.length === 0) {
+        setBoardLoading(false);
       }
     } catch {
+      if (retries > 0) {
+        await new Promise((r) => setTimeout(r, 800));
+        return fetchBoards(workspaceId, retries - 1);
+      }
       toast.error("Failed to load boards");
       setBoardLoading(false);
     }
   }, []);
 
   // Fetch board data (statuses, tags, tasks)
-  const fetchBoardData = useCallback(async (boardId: string, workspaceId?: string) => {
+  const fetchBoardData = useCallback(async (boardId: string, workspaceId?: string, retries = 2) => {
     setBoardLoading(true);
     try {
       const [statusRes, taskRes] = await Promise.all([
         fetch(`/api/statuses?board_id=${boardId}`),
         fetch(`/api/tasks?board_id=${boardId}`),
       ]);
+
+      // Retry if any critical request failed (cold start / auth not ready)
+      if (!statusRes.ok || !taskRes.ok) {
+        if (retries > 0) {
+          await new Promise((r) => setTimeout(r, 800));
+          return fetchBoardData(boardId, workspaceId, retries - 1);
+        }
+      }
 
       if (statusRes.ok) setStatuses(await statusRes.json());
       if (workspaceId) {
@@ -749,6 +778,10 @@ const toggleEditTagSelection = (id: string) => {
       }
       if (taskRes.ok) setTasks((await taskRes.json()).map(normalizeTask));
     } catch {
+      if (retries > 0) {
+        await new Promise((r) => setTimeout(r, 800));
+        return fetchBoardData(boardId, workspaceId, retries - 1);
+      }
       toast.error("Failed to load board data");
     } finally {
       setBoardLoading(false);
@@ -1824,10 +1857,12 @@ const toggleEditTagSelection = (id: string) => {
     filterAssigneeIds.length > 0 ||
     filterTagIds.length > 0;
 
-  const usedTagIds = new Set(
-    tasks.flatMap((t) => (t.tags ? t.tags.map((tag) => tag.id) : [])),
-  );
-  const filterableTags = tags.filter((tag) => usedTagIds.has(tag.id));
+  const filterableTags = useMemo(() => {
+    const usedTagIds = new Set(
+      tasks.flatMap((t) => (t.tags ? t.tags.map((tag) => tag.id) : [])),
+    );
+    return tags.filter((tag) => usedTagIds.has(tag.id));
+  }, [tasks, tags]);
 
   const toggleStatusFilter = (id: string) =>
     setFilterStatusIds((prev) =>
@@ -1851,33 +1886,35 @@ const toggleEditTagSelection = (id: string) => {
     setFilterTagIds([]);
   };
 
-  const filteredTasks = [...tasks]
-    .sort((a, b) => a.order - b.order)
-    .filter((t) => {
-      const matchesSearch =
-        t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (t.description || "")
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase());
+  const filteredTasks = useMemo(() =>
+    [...tasks]
+      .sort((a, b) => a.order - b.order)
+      .filter((t) => {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch =
+          t.title.toLowerCase().includes(query) ||
+          (t.description || "").toLowerCase().includes(query);
 
-      if (!matchesSearch) return false;
-      if (filterStatusIds.length) {
-        if (!t.statusId || !filterStatusIds.includes(t.statusId)) return false;
-      }
-      if (filterPriorities.length) {
-        if (!filterPriorities.includes(t.priority)) return false;
-      }
-      if (filterAssigneeIds.length) {
-        const ids = getAssigneeIds(t);
-        if (!ids.some((id) => filterAssigneeIds.includes(id))) return false;
-      }
-      if (filterTagIds.length) {
-        const taskTagIds = (t.tags ?? []).map((tag) => tag.id);
-        if (!taskTagIds.some((id) => filterTagIds.includes(id))) return false;
-      }
+        if (!matchesSearch) return false;
+        if (filterStatusIds.length) {
+          if (!t.statusId || !filterStatusIds.includes(t.statusId)) return false;
+        }
+        if (filterPriorities.length) {
+          if (!filterPriorities.includes(t.priority)) return false;
+        }
+        if (filterAssigneeIds.length) {
+          const ids = getAssigneeIds(t);
+          if (!ids.some((id) => filterAssigneeIds.includes(id))) return false;
+        }
+        if (filterTagIds.length) {
+          const taskTagIds = (t.tags ?? []).map((tag) => tag.id);
+          if (!taskTagIds.some((id) => filterTagIds.includes(id))) return false;
+        }
 
-      return true;
-    });
+        return true;
+      }),
+    [tasks, searchQuery, filterStatusIds, filterPriorities, filterAssigneeIds, filterTagIds],
+  );
 
   // Derived list view
   // (no grouping/drag-drop; status handled per-row select)
