@@ -1320,6 +1320,11 @@ const toggleEditTagSelection = (id: string) => {
     }
   };
 
+  // Keep a ref so the board-data effect always reads the latest workspace
+  // without needing it as a dependency (which caused a spurious re-fetch).
+  const workspaceRef = useRef(selectedWorkspace);
+  workspaceRef.current = selectedWorkspace;
+
   useEffect(() => {
     if (selectedWorkspace) {
       setSelectedBoard(null);
@@ -1332,9 +1337,10 @@ const toggleEditTagSelection = (id: string) => {
     if (selectedBoard) {
       setBoardLoading(true);
       setTasks([]);
-      fetchBoardData(selectedBoard.id, selectedWorkspace?.id);
+      fetchBoardData(selectedBoard.id, workspaceRef.current?.id);
     }
-  }, [selectedBoard, selectedWorkspace?.id, fetchBoardData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBoard, fetchBoardData]);
 
   useEffect(() => {
     setDeletedTags([]);
@@ -3087,6 +3093,13 @@ const toggleEditTagSelection = (id: string) => {
               {/* Tabela com scroll controlado (>=1200px) */}
               <div className="task-table-view">
                 <div className="relative bg-card border border-border rounded-lg shadow-sm w-full overflow-x-auto overflow-y-hidden nice-scrollbar tasks-scroll min-h-[60vh] px-1 sm:px-2">
+                  {/* Progress bar during loading */}
+                  {boardLoading && (
+                    <div className="absolute top-0 left-0 right-0 z-20 h-1 overflow-hidden rounded-t-lg bg-primary/10">
+                      <div className="h-full w-1/3 bg-primary rounded-full animate-[progress_1.2s_ease-in-out_infinite]" />
+                    </div>
+                  )}
+
                   <div
                     className={`${TASK_GRID} ${TABLE_MIN_WIDTH} px-3 py-3 xl:px-5 xl:py-3.5 text-[11px] font-medium tracking-wide text-muted-foreground border-b border-white/5 items-center`}
                   >
@@ -3102,7 +3115,7 @@ const toggleEditTagSelection = (id: string) => {
                     </span>
                   </div>
 
-                  {loading || boardLoading ? (
+                  {(loading || boardLoading) && filteredTasks.length === 0 ? (
                     <div className="py-10 flex flex-col items-center gap-4 text-sm text-primary">
                       <div className="flex items-center gap-3 px-4 py-2 rounded-full border border-primary/40 bg-primary/5 shadow-lg">
                         <Loader2 className="h-5 w-5 animate-spin text-primary" />
@@ -3115,6 +3128,7 @@ const toggleEditTagSelection = (id: string) => {
                           <div
                             key={idx}
                             className="animate-pulse rounded-md border border-border/60 bg-muted/40 shadow-sm"
+                            style={{ animationDelay: `${idx * 100}ms` }}
                           >
                             <div className={`${TASK_GRID} ${TABLE_MIN_WIDTH} px-3 py-3 xl:px-5 xl:py-3.5 items-center`}>
                               <div className="h-3 w-52 rounded bg-primary/15" />
@@ -3135,6 +3149,7 @@ const toggleEditTagSelection = (id: string) => {
                       No tasks found. Create one to get started.
                     </div>
                   ) : (
+                    <div className={cn("transition-opacity duration-200", boardLoading && "opacity-50 pointer-events-none")}>
                     <DndContext
                       sensors={sensors}
                       collisionDetection={closestCenter}
@@ -3184,16 +3199,17 @@ const toggleEditTagSelection = (id: string) => {
                         </div>
                       </SortableContext>
                     </DndContext>
+                    </div>
                   )}
                 </div>
               </div>
 
               {/* Card view para telas menores (<1200px) */}
               <div className="task-card-view space-y-3">
-                {boardLoading ? (
+                {boardLoading && filteredTasks.length === 0 ? (
                   <div className="py-8 flex items-center justify-center text-muted-foreground text-sm">
                     <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                    Loading tasks...
+                    Carregando tasks...
                   </div>
                 ) : filteredTasks.length === 0 ? (
                   <div className="py-8 text-center text-muted-foreground text-sm">
