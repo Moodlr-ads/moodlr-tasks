@@ -1330,6 +1330,8 @@ const toggleEditTagSelection = (id: string) => {
 
   useEffect(() => {
     if (selectedBoard) {
+      setBoardLoading(true);
+      setTasks([]);
       fetchBoardData(selectedBoard.id, selectedWorkspace?.id);
     }
   }, [selectedBoard, selectedWorkspace?.id, fetchBoardData]);
@@ -3100,7 +3102,7 @@ const toggleEditTagSelection = (id: string) => {
                     </span>
                   </div>
 
-                  {boardLoading ? (
+                  {loading || boardLoading ? (
                     <div className="py-10 flex flex-col items-center gap-4 text-sm text-primary">
                       <div className="flex items-center gap-3 px-4 py-2 rounded-full border border-primary/40 bg-primary/5 shadow-lg">
                         <Loader2 className="h-5 w-5 animate-spin text-primary" />
