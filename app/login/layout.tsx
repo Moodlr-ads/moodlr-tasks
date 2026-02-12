@@ -7,10 +7,18 @@ export default async function LoginLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession(authOptions);
+  try {
+    const session = await getServerSession(authOptions);
 
-  if (session) {
-    redirect("/dashboard");
+    if (session) {
+      redirect("/dashboard");
+    }
+  } catch (error: any) {
+    if (error?.digest?.startsWith("NEXT_REDIRECT")) {
+      throw error;
+    }
+    // On transient errors, just show the login page
+    console.error("Login session check error:", error);
   }
 
   return <>{children}</>;

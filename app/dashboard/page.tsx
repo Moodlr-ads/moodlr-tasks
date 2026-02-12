@@ -73,7 +73,7 @@ import {
   Trash2,
   User,
 } from "lucide-react";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -573,6 +573,17 @@ const TASK_GRID =
 const TABLE_MIN_WIDTH = "min-w-[1250px] xl:min-w-[1350px]";
 
 export default function DashboardPage() {
+  const { status: sessionStatus } = useSession();
+  const router = useRouter();
+
+  // Client-side auth guard: only redirect when session is definitively unauthenticated
+  // (not on "loading" which happens during cold starts / transient issues)
+  useEffect(() => {
+    if (sessionStatus === "unauthenticated") {
+      router.replace("/login");
+    }
+  }, [sessionStatus, router]);
+
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [boards, setBoards] = useState<Board[]>([]);
   const [selectedWorkspace, setSelectedWorkspace] = useState<Workspace | null>(
@@ -642,7 +653,6 @@ export default function DashboardPage() {
   const [deletedTags, setDeletedTags] = useState<Tag[]>([]);
   const [tagManagerLoading, setTagManagerLoading] = useState(false);
   const [tagActionLoading, setTagActionLoading] = useState(false);
-  const router = useRouter();
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
