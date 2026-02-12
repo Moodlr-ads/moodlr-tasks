@@ -1570,38 +1570,20 @@ const toggleEditTagSelection = (id: string) => {
   };
 
   const handleSeedExamples = async () => {
-    if (seedingExamples) return;
+    if (seedingExamples || workspaces.length > 0) return;
     setSeedingExamples(true);
     try {
-      // Create workspace
-      const wsRes = await fetch("/api/workspaces", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "Product Development",
-          description: "Sample workspace with a starter board",
-          icon: "🚀",
-        }),
-      });
-      if (!wsRes.ok) throw new Error("workspace");
-      const ws = await wsRes.json();
-      // Create board
-      const boardRes = await fetch("/api/boards", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workspaceId: ws.id,
-          name: "Q1 Sprint Planning",
-          icon: "📋",
-        }),
-      });
-      if (!boardRes.ok) throw new Error("board");
-      const board = await boardRes.json();
-
-      setWorkspaces((prev) => [ws, ...prev]);
-      setBoards((prev) => [board, ...prev]);
-      setSelectedWorkspace(ws);
-      setSelectedBoard(board);
+      const seedRes = await fetch("/api/seed-demo-data", { method: "POST" });
+      if (!seedRes.ok) throw new Error("seed failed");
+      // Reload workspaces from server
+      const res = await fetch("/api/workspaces");
+      if (res.ok) {
+        const data = await res.json();
+        setWorkspaces(data);
+        if (data.length > 0) {
+          setSelectedWorkspace(data[0]);
+        }
+      }
       toast.success("Loaded example workspace and board");
     } catch {
       toast.error("Failed to load examples. Check database connection.");

@@ -10,10 +10,8 @@ export async function POST() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user already has workspaces
-    const existing = await prisma.workspace.findFirst({
-      where: { ownerId: session.user.id },
-    });
+    // Check if any workspaces already exist (all users share workspaces)
+    const existing = await prisma.workspace.findFirst();
 
     if (existing) {
       return NextResponse.json({ message: "Demo data already exists" });
