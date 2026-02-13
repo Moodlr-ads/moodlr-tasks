@@ -60,24 +60,31 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const board = await ensureBoardOwner(id, session.user.id);
+    // Check if board exists
+    const board = await prisma.board.findUnique({ where: { id } });
     if (!board) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const taskIds = (
-      await prisma.task.findMany({
-        where: { boardId: id },
-        select: { id: true },
-      })
-    ).map((t) => t.id);
+    // Disconnect many-to-many Tag relations before deleting tasks
+    const tasks = await prisma.task.findMany({
+      where: { boardId: id },
+      select: { id: true },
+    });
 
-    if (taskIds.length) {
-      await prisma.taskAssignee.deleteMany({ where: { taskId: { in: taskIds } } });
+    if (tasks.length > 0) {
+      // Disconnect all tags from tasks
+      await Promise.all(
+        tasks.map((task) =>
+          prisma.task.update({
+            where: { id: task.id },
+            data: { tags: { set: [] } },
+          })
+        )
+      );
     }
-    await prisma.task.deleteMany({ where: { boardId: id } });
-    await prisma.status.deleteMany({ where: { boardId: id } });
-    await prisma.group.deleteMany({ where: { boardId: id } });
+
+    // Now delete the board (cascade will handle the rest)
     await prisma.board.delete({ where: { id } });
 
     return NextResponse.json({ success: true });
