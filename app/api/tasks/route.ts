@@ -70,23 +70,32 @@ export async function GET(req: Request) {
     const assignees = searchParams.getAll("assignee_id");
     const tags = searchParams.getAll("tag_id");
 
-    const where: any = {};
-    if (boardId) where.boardId = boardId;
-    if (groupId) where.groupId = groupId;
-    if (statusId) where.statusId = statusId;
-    if (priority) where.priority = priority;
+    const filters: any[] = [];
+    if (boardId) filters.push({ boardId });
+    if (groupId) filters.push({ groupId });
+    if (statusId) filters.push({ statusId });
+    if (priority) filters.push({ priority });
     if (assignees.length) {
-      where.assignees = { some: { userId: { in: assignees } } };
+      filters.push({
+        OR: [
+          { assigneeId: { in: assignees } },
+          { assignees: { some: { userId: { in: assignees } } } },
+        ],
+      });
     }
     if (tags.length) {
-      where.tags = { some: { id: { in: tags } } };
+      filters.push({ tags: { some: { id: { in: tags } } } });
     }
     if (search) {
-      where.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
-      ];
+      filters.push({
+        OR: [
+          { title: { contains: search, mode: "insensitive" } },
+          { description: { contains: search, mode: "insensitive" } },
+        ],
+      });
     }
+
+    const where = filters.length ? { AND: filters } : undefined;
 
     const tasks = await prisma.task.findMany({
       where,

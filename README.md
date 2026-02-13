@@ -2,6 +2,13 @@
 
 A professional, enterprise-grade task management system inspired by Monday.com and ClickUp. Built with React, FastAPI, and MongoDB with a clean architecture designed for easy migration to PHP + MySQL.
 
+## Local dev data (Next/Prisma)
+- Seed the local Postgres (Supabase) dev database with the Moodlr workspace, Sprint board, tags, and 24 tasks: `npm run seed:local` (rebuilds that workspace/board).
+- Pre-created logins: vitor@moodlr.com / vitorlopes223, marcelo@moodlr.com / marcelorola221, andhy@moodlr.com / andhymoodlr229, kayan@moodlr.com / kayanmoodlr226, gilailson@moodlr.com / gilacarneiro227.
+- If you only need the user records without tasks: `node scripts/seed-users.js`.
+- The login screen includes quick-fill buttons for these accounts.
+
+
 ## 🎯 Overview
 
 TaskFlow Pro is a complete task management solution featuring:

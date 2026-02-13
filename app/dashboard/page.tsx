@@ -602,6 +602,7 @@ export default function DashboardPage() {
   const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [boardLoading, setBoardLoading] = useState(true);
+  const [tasksReady, setTasksReady] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showProfileModal, setShowProfileModal] = useState(false);
 
@@ -764,6 +765,7 @@ const toggleEditTagSelection = (id: string) => {
   // Fetch board data (statuses, tags, tasks)
   const fetchBoardData = useCallback(async (boardId: string, workspaceId?: string, retries = 2) => {
     setBoardLoading(true);
+    setTasksReady(false);
     try {
       const [statusRes, taskRes] = await Promise.all([
         fetch(`/api/statuses?board_id=${boardId}`),
@@ -774,7 +776,7 @@ const toggleEditTagSelection = (id: string) => {
       if (!statusRes.ok || !taskRes.ok) {
         if (retries > 0) {
           await new Promise((r) => setTimeout(r, 800));
-          return fetchBoardData(boardId, workspaceId, retries - 1);
+          return await fetchBoardData(boardId, workspaceId, retries - 1);
         }
       }
 
@@ -790,10 +792,11 @@ const toggleEditTagSelection = (id: string) => {
     } catch {
       if (retries > 0) {
         await new Promise((r) => setTimeout(r, 800));
-        return fetchBoardData(boardId, workspaceId, retries - 1);
+        return await fetchBoardData(boardId, workspaceId, retries - 1);
       }
       toast.error("Failed to load board data");
     } finally {
+      setTasksReady(true);
       setBoardLoading(false);
     }
   }, []);
@@ -1380,6 +1383,7 @@ const toggleEditTagSelection = (id: string) => {
     if (selectedBoard) {
       setBoardLoading(true);
       setTasks([]);
+      setTasksReady(false);
       fetchBoardData(selectedBoard.id, workspaceRef.current?.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3144,7 +3148,7 @@ const toggleEditTagSelection = (id: string) => {
                     </span>
                   </div>
 
-                  {(loading || boardLoading) && filteredTasks.length === 0 ? (
+                  {(loading || boardLoading || !tasksReady) && filteredTasks.length === 0 ? (
                     <div className="py-10 flex flex-col items-center gap-4 text-sm text-primary">
                       <div className="flex items-center gap-3 px-4 py-2 rounded-full border border-primary/40 bg-primary/5 shadow-lg">
                         <Loader2 className="h-5 w-5 animate-spin text-primary" />
@@ -3173,7 +3177,7 @@ const toggleEditTagSelection = (id: string) => {
                         ))}
                       </div>
                     </div>
-                  ) : filteredTasks.length === 0 ? (
+                  ) : tasksReady && !boardLoading && filteredTasks.length === 0 ? (
                     <div className="py-12 text-center text-muted-foreground text-sm">
                       No tasks found. Create one to get started.
                     </div>
@@ -3235,12 +3239,12 @@ const toggleEditTagSelection = (id: string) => {
 
               {/* Card view para telas menores (<1200px) */}
               <div className="task-card-view space-y-3">
-                {boardLoading && filteredTasks.length === 0 ? (
+                {(boardLoading || !tasksReady) && filteredTasks.length === 0 ? (
                   <div className="py-8 flex items-center justify-center text-muted-foreground text-sm">
                     <Loader2 className="h-5 w-5 animate-spin mr-2" />
                     Carregando tasks...
                   </div>
-                ) : filteredTasks.length === 0 ? (
+                ) : tasksReady && !boardLoading && filteredTasks.length === 0 ? (
                   <div className="py-8 text-center text-muted-foreground text-sm">
                     No tasks found. Create one to get started.
                   </div>
