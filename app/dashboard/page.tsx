@@ -2508,24 +2508,24 @@ const toggleEditTagSelection = (id: string) => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 bg-background text-foreground">
         {/* Header */}
-        <header className="h-14 bg-card border-b border-border flex items-center px-4 gap-3 text-foreground">
+        <header className="h-12 sm:h-14 bg-card border-b border-border flex items-center px-2 sm:px-4 gap-1.5 sm:gap-3 text-foreground">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground shrink-0"
           >
             <LayoutDashboard className="h-5 w-5" />
           </button>
 
           {selectedBoard ? (
             <>
-              <div className="flex items-center gap-2">
-                <span>{selectedBoard.icon}</span>
-                <h2 className="font-semibold text-slate-900 dark:text-slate-200">
+              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                <span className="shrink-0">{selectedBoard.icon}</span>
+                <h2 className="font-semibold text-sm sm:text-base text-slate-900 dark:text-slate-200 truncate">
                   {selectedBoard.name}
                 </h2>
               </div>
 
-              <div className="flex-1 max-w-sm ml-4">
+              <div className="hidden sm:block flex-1 max-w-sm ml-4">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
@@ -2538,24 +2538,24 @@ const toggleEditTagSelection = (id: string) => {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-end gap-3 ml-auto">
-              <h2 className="text-slate-500 mr-auto">
+            <div className="flex-1 flex items-center justify-end gap-3 ml-auto min-w-0">
+              <h2 className="text-slate-500 mr-auto text-sm sm:text-base truncate">
                 Select a board to get started
               </h2>
             </div>
           )}
 
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-1.5 sm:gap-3 shrink-0">
             <Button
               variant="ghost"
               size="sm"
-              className="gap-2 text-muted-foreground hover:text-foreground"
+              className="gap-1.5 sm:gap-2 text-muted-foreground hover:text-foreground px-1.5 sm:px-3"
               onClick={() => setShowProfileModal(true)}
             >
               <UserAvatar
                 src={profileImage || undefined}
                 name={profileName}
-                className="h-7 w-7"
+                className="h-6 w-6 sm:h-7 sm:w-7"
               />
               <span className="hidden sm:block text-sm">
                 {profileName || "Profile"}
@@ -2567,10 +2567,11 @@ const toggleEditTagSelection = (id: string) => {
                 <DialogTrigger asChild>
                   <Button
                     size="sm"
+                    className="px-2 sm:px-3"
                     style={{ backgroundColor: "hsl(243, 75%, 59%)" }}
                   >
-                    <Plus className="h-4 w-4 mr-1" />
-                    New Task
+                    <Plus className="h-4 w-4 sm:mr-1" />
+                    <span className="hidden sm:inline">New Task</span>
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
@@ -2804,14 +2805,14 @@ const toggleEditTagSelection = (id: string) => {
         </header>
 
         {selectedBoard && (
-          <div className="border-b border-border bg-card/50 px-4 py-3 flex flex-wrap items-center gap-2">
-            <span className="text-[11px] uppercase font-semibold text-muted-foreground">
+          <div className="border-b border-border bg-card/50 px-2 sm:px-4 py-2 sm:py-3 flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <span className="text-[10px] sm:text-[11px] uppercase font-semibold text-muted-foreground">
               Filters
             </span>
 
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9">
+                <Button variant="outline" size="sm" className="h-7 sm:h-9 text-xs sm:text-sm">
                   Status{filterStatusIds.length ? ` (${filterStatusIds.length})` : ""}
                 </Button>
               </PopoverTrigger>
@@ -2865,7 +2866,7 @@ const toggleEditTagSelection = (id: string) => {
 
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9">
+                <Button variant="outline" size="sm" className="h-7 sm:h-9 text-xs sm:text-sm">
                   Priority{filterPriorities.length ? ` (${filterPriorities.length})` : ""}
                 </Button>
               </PopoverTrigger>
@@ -2917,12 +2918,12 @@ const toggleEditTagSelection = (id: string) => {
               </PopoverContentAny>
             </Popover>
 
-            <div className="min-w-[220px] max-w-[280px]">
+            <div className="min-w-[160px] sm:min-w-[220px] max-w-[240px] sm:max-w-[280px]">
               <AssigneePicker
                 users={users}
                 selectedIds={filterAssigneeIds}
                 onChange={(next) => setFilterAssigneeIds(next)}
-                triggerClassName="h-9"
+                triggerClassName="h-7 sm:h-9 text-xs sm:text-sm"
                 single
                 emptyLabel="Any assignee"
               />
@@ -2930,7 +2931,7 @@ const toggleEditTagSelection = (id: string) => {
 
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9">
+                <Button variant="outline" size="sm" className="h-7 sm:h-9 text-xs sm:text-sm">
                   Tags{filterTagIds.length ? ` (${filterTagIds.length})` : ""}
                 </Button>
               </PopoverTrigger>
@@ -2986,21 +2987,23 @@ const toggleEditTagSelection = (id: string) => {
             <Button
               variant="outline"
               size="sm"
-              className="h-9 gap-2"
+              className="h-7 sm:h-9 gap-1.5 sm:gap-2 text-xs sm:text-sm"
               onClick={() => setShowTagManager(true)}
               disabled={!selectedWorkspace}
             >
-              <Trash2 className="h-4 w-4" />
-              Lixeira de tags
+              <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Lixeira de tags</span>
+              <span className="sm:hidden">Tags</span>
             </Button>
 
             <Button
               variant="ghost"
               size="sm"
+              className="text-xs sm:text-sm"
               onClick={clearFilters}
               disabled={!hasActiveFilters}
             >
-              Clear filters
+              Clear
             </Button>
           </div>
         )}
@@ -3238,7 +3241,7 @@ const toggleEditTagSelection = (id: string) => {
               </div>
 
               {/* Card view para telas menores (<1200px) */}
-              <div className="task-card-view space-y-3">
+              <div className="task-card-view space-y-2 sm:space-y-3">
                 {(boardLoading || !tasksReady) && filteredTasks.length === 0 ? (
                   <div className="py-8 flex items-center justify-center text-muted-foreground text-sm">
                     <Loader2 className="h-5 w-5 animate-spin mr-2" />
@@ -3256,30 +3259,30 @@ const toggleEditTagSelection = (id: string) => {
                     return (
                       <div
                         key={task.id}
-                        className="bg-card/70 border border-border rounded-lg p-4 space-y-3"
+                        className="bg-card/70 border border-border rounded-lg p-3 sm:p-4 space-y-2 sm:space-y-3"
                       >
-                        <div className="flex items-start gap-3">
+                        <div className="flex items-start gap-2 sm:gap-3">
                           <button
-                            className="text-muted-foreground hover:text-foreground mt-1"
+                            className="text-muted-foreground hover:text-foreground mt-0.5 sm:mt-1"
                             aria-label="Reorder handle (desktop only)"
                           >
-                            <GripVertical className="h-4 w-4" />
+                            <GripVertical className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           </button>
                           <div className="flex-1 min-w-0">
-                            <p className="text-base font-semibold leading-tight line-clamp-2">
+                            <p className="text-sm sm:text-base font-semibold leading-tight line-clamp-2">
                               {task.title}
                             </p>
                             {task.description && (
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                              <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 line-clamp-1 sm:line-clamp-2">
                                 {task.description}
                               </p>
                             )}
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="flex items-center gap-2">
-                            <Label className="text-[11px] text-muted-foreground">
+                        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                          <div className="flex items-center gap-1.5 sm:gap-2">
+                            <Label className="text-[10px] sm:text-[11px] text-muted-foreground shrink-0">
                               Status
                             </Label>
                             <Select
@@ -3288,7 +3291,7 @@ const toggleEditTagSelection = (id: string) => {
                                 handleUpdateTaskStatus(task.id, val)
                               }
                             >
-                              <SelectTrigger className="h-10 w-full max-w-[180px]">
+                              <SelectTrigger className="h-8 sm:h-10 w-full max-w-[160px] sm:max-w-[180px] text-xs sm:text-sm">
                                 <SelectValue placeholder="No status" />
                               </SelectTrigger>
                               <SelectContent>
@@ -3307,12 +3310,12 @@ const toggleEditTagSelection = (id: string) => {
                             </Select>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            <Label className="text-[11px] text-muted-foreground">
+                          <div className="flex items-center gap-1.5 sm:gap-2">
+                            <Label className="text-[10px] sm:text-[11px] text-muted-foreground shrink-0">
                               Priority
                             </Label>
                             <span
-                              className="inline-flex items-center gap-2 text-[11px] font-medium px-2.5 py-1.5 rounded-full border h-9"
+                              className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-full border h-7 sm:h-9"
                               style={{
                                 color: priority.color,
                                 borderColor: priority.color,
@@ -3322,8 +3325,8 @@ const toggleEditTagSelection = (id: string) => {
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                          <Label className="text-[11px] text-muted-foreground">
+                          <div className="flex items-center gap-1.5 sm:gap-2 col-span-2 sm:col-span-1">
+                          <Label className="text-[10px] sm:text-[11px] text-muted-foreground shrink-0">
                             Tags
                           </Label>
                           <div className="flex flex-wrap gap-1">
@@ -3360,8 +3363,8 @@ const toggleEditTagSelection = (id: string) => {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            <Label className="text-[11px] text-muted-foreground">
+                          <div className="flex items-center gap-1.5 sm:gap-2 col-span-2 sm:col-span-1">
+                            <Label className="text-[10px] sm:text-[11px] text-muted-foreground shrink-0">
                               Assignees
                             </Label>
                             <div className="flex-1">
@@ -3371,17 +3374,17 @@ const toggleEditTagSelection = (id: string) => {
                                 onChange={(next) =>
                                   handleUpdateTaskAssignees(task.id, next)
                                 }
-                                triggerClassName="max-w-[240px]"
+                                triggerClassName="max-w-[200px] sm:max-w-[240px]"
                                 align="end"
                               />
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            <Label className="text-[11px] text-muted-foreground">
+                          <div className="flex items-center gap-1.5 sm:gap-2">
+                            <Label className="text-[10px] sm:text-[11px] text-muted-foreground shrink-0">
                               Start
                             </Label>
-                            <div className="w-full max-w-[180px]">
+                            <div className="w-full max-w-[140px] sm:max-w-[180px]">
                               <DateCell
                                 label="Start"
                                 value={task.startDate}
@@ -3392,11 +3395,11 @@ const toggleEditTagSelection = (id: string) => {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            <Label className="text-[11px] text-muted-foreground">
+                          <div className="flex items-center gap-1.5 sm:gap-2">
+                            <Label className="text-[10px] sm:text-[11px] text-muted-foreground shrink-0">
                               Due
                             </Label>
-                            <div className="w-full max-w-[180px]">
+                            <div className="w-full max-w-[140px] sm:max-w-[180px]">
                               <DateCell
                                 label="Due"
                                 value={task.dueDate}
