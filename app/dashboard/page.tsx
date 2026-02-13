@@ -2418,7 +2418,7 @@ const toggleEditTagSelection = (id: string) => {
                     </Button>
                   </PopoverTrigger>
                   {/* @ts-ignore Radix type issue in .jsx wrapper */}
-                  <PopoverContentAny className="p-0" align="start">
+                  <PopoverContentAny className="p-0 w-auto" align="center" side="bottom">
                     <CalendarPicker
                       className="p-2"
                       classNames={{ day_today: "text-muted-foreground" }}
@@ -2466,7 +2466,7 @@ const toggleEditTagSelection = (id: string) => {
                     </Button>
                   </PopoverTrigger>
                   {/* @ts-ignore Radix type issue in .jsx wrapper */}
-                  <PopoverContentAny className="p-0" align="start">
+                  <PopoverContentAny className="p-0 w-auto" align="center" side="bottom">
                     <CalendarPicker
                       className="p-2"
                       classNames={{ day_today: "text-muted-foreground" }}
@@ -2733,7 +2733,7 @@ const toggleEditTagSelection = (id: string) => {
                               </Button>
                             </PopoverTrigger>
                             {/* @ts-ignore Radix type issue in .jsx wrapper */}
-                            <PopoverContentAny className="p-0" align="start">
+                            <PopoverContentAny className="p-0 w-auto" align="center" side="bottom">
                               <CalendarPicker
                                 className="p-2"
                                 classNames={{}}
@@ -2776,7 +2776,7 @@ const toggleEditTagSelection = (id: string) => {
                               </Button>
                             </PopoverTrigger>
                             {/* @ts-ignore Radix type issue in .jsx wrapper */}
-                            <PopoverContentAny className="p-0" align="start">
+                            <PopoverContentAny className="p-0 w-auto" align="center" side="bottom">
                               <CalendarPicker
                                 className="p-2"
                                 classNames={{}}
@@ -3997,7 +3997,7 @@ const DateCell = ({
         </Button>
       </PopoverTrigger>
       {/* @ts-ignore Radix jsx wrapper typing */}
-      <PopoverContentAny className="p-2 w-auto" align="start">
+      <PopoverContentAny className="p-2 w-auto" align="center" side="bottom">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-medium">{label}</span>
           <Button
