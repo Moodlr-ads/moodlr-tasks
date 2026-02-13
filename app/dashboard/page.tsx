@@ -2429,9 +2429,9 @@ const toggleEditTagSelection = (id: string) => {
                           : undefined
                       }
                       defaultMonth={
-                        editTaskStartDate
-                          ? parseDateInput(editTaskStartDate) ?? undefined
-                          : undefined
+                        parseDateInput(editTaskStartDate) ??
+                        parseDateInput(editTaskDueDate) ??
+                        undefined
                       }
                       onSelect={(date: Date | undefined) => {
                         if (
@@ -2477,9 +2477,9 @@ const toggleEditTagSelection = (id: string) => {
                           : undefined
                       }
                       defaultMonth={
-                        editTaskDueDate
-                          ? parseDateInput(editTaskDueDate) ?? undefined
-                          : undefined
+                        parseDateInput(editTaskDueDate) ??
+                        parseDateInput(editTaskStartDate) ??
+                        undefined
                       }
                       onSelect={(date: Date | undefined) => {
                         if (
@@ -2743,6 +2743,11 @@ const toggleEditTagSelection = (id: string) => {
                                     ? parseDateInput(newTaskStartDate) ?? undefined
                                     : undefined
                                 }
+                                defaultMonth={
+                                  parseDateInput(newTaskStartDate) ??
+                                  parseDateInput(newTaskDueDate) ??
+                                  undefined
+                                }
                     onSelect={(date: Date | undefined) => {
                       if (
                         date &&
@@ -2785,6 +2790,11 @@ const toggleEditTagSelection = (id: string) => {
                                   newTaskDueDate
                                     ? parseDateInput(newTaskDueDate) ?? undefined
                                     : undefined
+                                }
+                                defaultMonth={
+                                  parseDateInput(newTaskDueDate) ??
+                                  parseDateInput(newTaskStartDate) ??
+                                  undefined
                                 }
                     onSelect={(date: Date | undefined) => {
                       if (
@@ -3984,6 +3994,10 @@ const DateCell = ({
   pairedDate?: string | null;
   pairedType?: "start" | "due";
 }) => {
+  const parsedValue = value ? parseDateInput(value) ?? undefined : undefined;
+  const parsedPair = pairedDate ? parseDateInput(pairedDate) ?? undefined : undefined;
+  const defaultMonth = parsedValue ?? parsedPair ?? undefined;
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -4015,8 +4029,8 @@ const DateCell = ({
             day_today: "text-muted-foreground",
           }}
           mode="single"
-          selected={value ? parseDateInput(value) ?? undefined : undefined}
-          defaultMonth={value ? parseDateInput(value) ?? undefined : undefined}
+          selected={parsedValue}
+          defaultMonth={defaultMonth}
           onSelect={(date: Date | undefined) => {
             if (pairedType && pairedDate && date) {
               const paired = parseDateInput(pairedDate);
