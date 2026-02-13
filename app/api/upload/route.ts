@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { put } from "@vercel/blob";
 import { promises as fs } from "fs";
 import path from "path";
+import crypto from "crypto";
 
 export const runtime = "nodejs";
 
@@ -32,7 +33,11 @@ export async function POST(req: Request) {
     // Use Vercel Blob in production (when token is available)
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       try {
-        const blob = await put(file.name, file, {
+        // Generate unique filename to prevent collisions
+        const ext = path.extname(file.name) || ".png";
+        const uniqueName = `avatars/${crypto.randomUUID()}${ext}`;
+
+        const blob = await put(uniqueName, file, {
           access: "public",
           token: process.env.BLOB_READ_WRITE_TOKEN,
         });
@@ -49,13 +54,15 @@ export async function POST(req: Request) {
     // Fallback to local filesystem in development
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    const ext = path.extname(file.name) || ".png";
+    const uniqueName = `${crypto.randomUUID()}${ext}`;
     const uploadDir = path.join(process.cwd(), "public", "uploads");
 
     try {
       await fs.mkdir(uploadDir, { recursive: true });
-      const filePath = path.join(uploadDir, file.name);
+      const filePath = path.join(uploadDir, uniqueName);
       await fs.writeFile(filePath, buffer);
-      const imageUrl = `/uploads/${file.name}`;
+      const imageUrl = `/uploads/${uniqueName}`;
       return NextResponse.json({ imageUrl });
     } catch (error) {
       console.error("Filesystem upload error:", error);
