@@ -18,6 +18,7 @@ model User {
   taskAssignments TaskAssignee[]
   tasks           Task[]         @relation("UserTasks")
   workspaces      Workspace[]
+  notifications   Notification[]
 
   @@map("users")
 }
@@ -135,6 +136,22 @@ model Tag {
 
   @@unique([workspaceId, name])
   @@map("tags")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  taskId    String?  @map("task_id")
+  type      String
+  title     String
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
 }
 
 enum Priority {

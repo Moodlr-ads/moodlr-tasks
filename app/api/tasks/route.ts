@@ -1,5 +1,6 @@
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { notifyAllUsers } from "@/lib/notifications";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
@@ -252,6 +253,15 @@ export async function POST(req: Request) {
         tags: true,
       },
     });
+
+    // Notify all users about new task
+    notifyAllUsers({
+      excludeUserId: session.user.id,
+      type: "task_created",
+      title: "Nova task criada",
+      message: task.title,
+      taskId: task.id,
+    }).catch(console.error);
 
     return NextResponse.json(task, { status: 201 });
   } catch (error) {

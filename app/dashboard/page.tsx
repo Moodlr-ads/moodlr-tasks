@@ -1,5 +1,6 @@
 "use client";
 
+import { NotificationBell } from "@/components/notification-bell";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   AlertDialog,
@@ -2561,6 +2562,7 @@ const toggleEditTagSelection = (id: string) => {
                 {profileName || "Profile"}
               </span>
             </Button>
+            <NotificationBell />
             <ThemeToggle />
             {selectedBoard && (
               <Dialog open={showNewTask} onOpenChange={setShowNewTask}>

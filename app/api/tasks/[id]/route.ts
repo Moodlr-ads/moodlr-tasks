@@ -1,5 +1,6 @@
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { notifyAllUsers } from "@/lib/notifications";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
@@ -127,6 +128,20 @@ export async function PUT(
       },
     });
 
+    // Determine notification type
+    const notifType = "statusId" in data ? "task_status_changed" : "task_updated";
+    const notifTitle = notifType === "task_status_changed"
+      ? "Status alterado"
+      : "Task atualizada";
+
+    notifyAllUsers({
+      excludeUserId: session.user.id,
+      type: notifType,
+      title: notifTitle,
+      message: task.title,
+      taskId: task.id,
+    }).catch(console.error);
+
     return NextResponse.json(task);
   } catch (error) {
     console.error("Error updating task:", error);
@@ -148,8 +163,24 @@ export async function DELETE(
     }
 
     const { id } = await params;
+
+    // Get task title before deleting
+    const task = await prisma.task.findUnique({
+      where: { id },
+      select: { title: true },
+    });
+
     await prisma.taskAssignee.deleteMany({ where: { taskId: id } });
     await prisma.task.delete({ where: { id } });
+
+    if (task) {
+      notifyAllUsers({
+        excludeUserId: session.user.id,
+        type: "task_deleted",
+        title: "Task removida",
+        message: task.title,
+      }).catch(console.error);
+    }
 
     return NextResponse.json({ message: "Task deleted" });
   } catch (error) {
