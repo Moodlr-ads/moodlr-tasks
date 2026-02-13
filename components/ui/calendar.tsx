@@ -11,12 +11,16 @@ function Calendar({
   className,
   classNames,
   showOutsideDays = true,
+  weekStartsOn,
   ...props
 }: CalendarProps) {
+  const resolvedWeekStart = typeof weekStartsOn === "number" ? weekStartsOn : 1; // default Monday
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn("p-3 w-[320px]", className)}
+      weekStartsOn={resolvedWeekStart}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
