@@ -69,29 +69,29 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-3 sm:p-4 md:p-6">
       <div className="w-full max-w-md">
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-end mb-3 sm:mb-4">
           <ThemeToggle />
         </div>
-        <div className="text-center mb-8 flex flex-col items-center">
-          <div className="bg-slate-900 dark:bg-transparent p-3 dark:p-0 rounded-md flex items-center justify-center">
+        <div className="text-center mb-6 sm:mb-8 flex flex-col items-center">
+          <div className="bg-slate-900 dark:bg-transparent p-2 sm:p-3 dark:p-0 rounded-md flex items-center justify-center">
             <Image
               src="/moodlr-icon.png"
               alt="Moodlr"
               width={112}
               height={112}
-              className="h-24 sm:h-28 w-auto mx-auto"
+              className="h-20 sm:h-24 md:h-28 w-auto mx-auto"
               priority
             />
           </div>
         </div>
 
-        <div className="bg-card rounded-lg shadow-xl border border-border p-8">
-          <div className="flex gap-2 mb-6 bg-muted p-1 rounded-md">
+        <div className="bg-card rounded-lg shadow-xl border border-border p-4 sm:p-6 md:p-8">
+          <div className="flex gap-1.5 sm:gap-2 mb-4 sm:mb-6 bg-muted p-1 rounded-md">
             <button
               onClick={() => setIsLogin(true)}
-              className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
+              className={`flex-1 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-medium transition-all ${
                 isLogin
                   ? "bg-card text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -101,7 +101,7 @@ export default function LoginPage() {
             </button>
             <button
               onClick={() => setIsLogin(false)}
-              className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
+              className={`flex-1 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-medium transition-all ${
                 !isLogin
                   ? "bg-card text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -111,10 +111,10 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
             {!isLogin && (
               <div>
-              <Label htmlFor="name" className="text-sm font-medium text-foreground">
+              <Label htmlFor="name" className="text-xs sm:text-sm font-medium text-foreground">
                   Full Name
                 </Label>
                 <Input
@@ -123,14 +123,14 @@ export default function LoginPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required={!isLogin}
-                  className="mt-1"
+                  className="mt-1 h-9 sm:h-10 text-sm sm:text-base"
                   placeholder="John Doe"
                 />
               </div>
             )}
 
             <div>
-              <Label htmlFor="email" className="text-sm font-medium text-foreground">
+              <Label htmlFor="email" className="text-xs sm:text-sm font-medium text-foreground">
                 Email
               </Label>
               <Input
@@ -139,13 +139,13 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="mt-1"
+                className="mt-1 h-9 sm:h-10 text-sm sm:text-base"
                 placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <Label htmlFor="password" className="text-sm font-medium text-foreground">
+              <Label htmlFor="password" className="text-xs sm:text-sm font-medium text-foreground">
                 Password
               </Label>
               <Input
@@ -154,7 +154,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="mt-1"
+                className="mt-1 h-9 sm:h-10 text-sm sm:text-base"
                 placeholder="••••••••"
               />
             </div>
@@ -162,7 +162,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full h-10 font-medium shadow-sm"
+              className="w-full h-9 sm:h-10 md:h-11 font-medium shadow-sm text-sm sm:text-base"
               style={{ backgroundColor: "hsl(243, 75%, 59%)" }}
             >
               {loading ? "Please wait..." : isLogin ? "Log In" : "Create Account"}
