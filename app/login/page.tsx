@@ -10,14 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
-const demoAccounts = [
-  { label: "Vitor (owner)", email: "vitor@moodlr.com", password: "vitorlopes223" },
-  { label: "Marcelo", email: "marcelo@moodlr.com", password: "marcelorola221" },
-  { label: "Andhy", email: "andhy@moodlr.com", password: "andhymoodlr229" },
-  { label: "Kayan", email: "kayan@moodlr.com", password: "kayanmoodlr226" },
-  { label: "Gilailson", email: "gilailson@moodlr.com", password: "gilacarneiro227" },
-];
-
 export default function LoginPage() {
   const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
@@ -74,12 +66,6 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const fillDemo = (account: (typeof demoAccounts)[number]) => {
-    setEmail(account.email);
-    setPassword(account.password);
-    toast.success(`Filled with ${account.email}`);
   };
 
   return (
@@ -182,30 +168,6 @@ export default function LoginPage() {
               {loading ? "Please wait..." : isLogin ? "Log In" : "Create Account"}
             </Button>
           </form>
-
-          {isLogin && (
-            <div className="mt-6 space-y-3">
-              <p className="text-sm text-slate-500 text-center">
-                Demo: use any email/password to sign up or pick a pre-seeded account below.
-              </p>
-              <div className="grid gap-2">
-                {demoAccounts.map((account) => (
-                  <Button
-                    key={account.email}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="w-full justify-between"
-                    onClick={() => fillDemo(account)}
-                    disabled={loading}
-                  >
-                    <span className="font-medium text-left">{account.label}</span>
-                    <span className="text-xs text-muted-foreground">{account.email}</span>
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
