@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { TaskDatePicker } from "@/components/task-date-picker";
 import {
   Dialog,
   DialogContent,
@@ -58,6 +59,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { format, parse, parseISO } from "date-fns";
 import {
   ChevronRight,
   GripVertical,
@@ -567,8 +569,8 @@ const AssigneePicker = ({
 };
 
 const TASK_GRID =
-  "grid gap-x-3 gap-y-3 grid-cols-[minmax(260px,1.5fr)_150px_110px_220px_180px_90px] items-center";
-const TABLE_MIN_WIDTH = "min-w-[1050px] xl:min-w-[1150px]";
+  "grid gap-x-3 gap-y-3 grid-cols-[minmax(260px,1.5fr)_150px_110px_220px_180px_140px_140px_70px] items-center";
+const TABLE_MIN_WIDTH = "min-w-[1280px] xl:min-w-[1380px]";
 
 export default function DashboardPage() {
   const { status: sessionStatus } = useSession();
@@ -628,6 +630,8 @@ export default function DashboardPage() {
   const [newTaskStatusId, setNewTaskStatusId] = useState("");
   const [newTaskTagIds, setNewTaskTagIds] = useState<string[]>([]);
   const [newTaskAssigneeIds, setNewTaskAssigneeIds] = useState<string[]>([]);
+  const [newTaskStartDate, setNewTaskStartDate] = useState("");
+  const [newTaskDueDate, setNewTaskDueDate] = useState("");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editTaskTitle, setEditTaskTitle] = useState("");
   const [editTaskDesc, setEditTaskDesc] = useState("");
@@ -635,6 +639,8 @@ export default function DashboardPage() {
   const [editTaskPriority, setEditTaskPriority] = useState<Task["priority"]>("medium");
   const [editTaskTagIds, setEditTaskTagIds] = useState<string[]>([]);
   const [editTaskAssigneeIds, setEditTaskAssigneeIds] = useState<string[]>([]);
+  const [editTaskStartDate, setEditTaskStartDate] = useState("");
+  const [editTaskDueDate, setEditTaskDueDate] = useState("");
   const [newWorkspaceIcon, setNewWorkspaceIcon] = useState("📁");
   const [editWorkspaceIcon, setEditWorkspaceIcon] = useState("📁");
   const [newBoardIcon, setNewBoardIcon] = useState("📋");
@@ -644,10 +650,14 @@ export default function DashboardPage() {
   const [editHeadingValue, setEditHeadingValue] = useState(workspaceHeading);
   const [seedingExamples, setSeedingExamples] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
-const [showTagManager, setShowTagManager] = useState(false);
-const [deletedTags, setDeletedTags] = useState<Tag[]>([]);
-const [tagManagerLoading, setTagManagerLoading] = useState(false);
-const [tagActionLoading, setTagActionLoading] = useState(false);
+  const [showTagManager, setShowTagManager] = useState(false);
+  const [deletedTags, setDeletedTags] = useState<Tag[]>([]);
+  const [tagManagerLoading, setTagManagerLoading] = useState(false);
+  const [tagActionLoading, setTagActionLoading] = useState(false);
+  const parsedNewStartDate = parseDateInput(newTaskStartDate);
+  const parsedNewDueDate = parseDateInput(newTaskDueDate);
+  const parsedEditStartDate = parseDateInput(editTaskStartDate);
+  const parsedEditDueDate = parseDateInput(editTaskDueDate);
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -1596,6 +1606,14 @@ const toggleEditTagSelection = (id: string) => {
   // Create task
   const handleCreateTask = async () => {
     if (!newTaskTitle.trim() || !selectedBoard) return;
+    if (newTaskStartDate && newTaskDueDate) {
+      const start = parseDateInput(newTaskStartDate);
+      const due = parseDateInput(newTaskDueDate);
+      if (start && due && start.getTime() > due.getTime()) {
+        toast.error("Start date cannot be after due date");
+        return;
+      }
+    }
     try {
       const res = await fetch("/api/tasks", {
         method: "POST",
@@ -1608,6 +1626,8 @@ const toggleEditTagSelection = (id: string) => {
           statusId: newTaskStatusId || null,
           groupId: null,
           assigneeIds: newTaskAssigneeIds,
+          startDate: newTaskStartDate || null,
+          dueDate: newTaskDueDate || null,
           tagIds: newTaskTagIds.slice(0, TAG_LIMIT),
         }),
       });
@@ -1620,6 +1640,8 @@ const toggleEditTagSelection = (id: string) => {
         setNewTaskStatusId("");
         setNewTaskTagIds([]);
         setNewTaskAssigneeIds([]);
+        setNewTaskStartDate("");
+        setNewTaskDueDate("");
         setShowNewTask(false);
         toast.success("Task created");
         refreshNotifications();
@@ -1689,6 +1711,67 @@ const toggleEditTagSelection = (id: string) => {
   // Backward-compatible alias to match previous prop name
   const handleUpdateTaskAssignee = handleUpdateTaskAssignees;
 
+  const handleUpdateTaskStartDate = async (
+    taskId: string,
+    startDate: string,
+  ) => {
+    const existing = tasks.find((t) => t.id === taskId);
+    if (existing?.dueDate) {
+      const due = parseDateInput(existing.dueDate);
+      const start = parseDateInput(startDate);
+      if (start && due && start.getTime() > due.getTime()) {
+        toast.error("Start date cannot be after due date");
+        return;
+      }
+    }
+
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ startDate: startDate || null }),
+      });
+      if (res.ok) {
+        const updated = normalizeTask(await res.json());
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
+        );
+        refreshNotifications();
+      }
+    } catch {
+      toast.error("Failed to update start date");
+    }
+  };
+
+  const handleUpdateTaskDueDate = async (taskId: string, dueDate: string) => {
+    const existing = tasks.find((t) => t.id === taskId);
+    if (existing?.startDate) {
+      const start = parseDateInput(existing.startDate);
+      const due = parseDateInput(dueDate);
+      if (start && due && due.getTime() < start.getTime()) {
+        toast.error("Due date cannot be before start date");
+        return;
+      }
+    }
+
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dueDate: dueDate || null }),
+      });
+      if (res.ok) {
+        const updated = normalizeTask(await res.json());
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
+        );
+        refreshNotifications();
+      }
+    } catch {
+      toast.error("Failed to update due date");
+    }
+  };
+
 
   const beginEditTask = (task: Task) => {
     setEditingTask(task);
@@ -1700,6 +1783,8 @@ const toggleEditTagSelection = (id: string) => {
       uniq(task.tags?.map((t) => t.id).slice(0, TAG_LIMIT) || []),
     );
     setEditTaskAssigneeIds(getAssigneeIds(task));
+    setEditTaskStartDate(formatDateValue(task.startDate) || "");
+    setEditTaskDueDate(formatDateValue(task.dueDate) || "");
   };
 
   const handleSaveEditTask = async () => {
@@ -1707,6 +1792,14 @@ const toggleEditTagSelection = (id: string) => {
     if (!editTaskTitle.trim()) {
       toast.error("Title is required");
       return;
+    }
+    if (editTaskStartDate && editTaskDueDate) {
+      const start = parseDateInput(editTaskStartDate);
+      const due = parseDateInput(editTaskDueDate);
+      if (start && due && start.getTime() > due.getTime()) {
+        toast.error("Start date cannot be after due date");
+        return;
+      }
     }
     try {
       const res = await fetch(`/api/tasks/${editingTask.id}`, {
@@ -1719,6 +1812,8 @@ const toggleEditTagSelection = (id: string) => {
           priority: editTaskPriority,
           tagIds: editTaskTagIds.slice(0, TAG_LIMIT),
           assigneeIds: editTaskAssigneeIds,
+          startDate: editTaskStartDate || null,
+          dueDate: editTaskDueDate || null,
         }),
       });
       if (res.ok) {
@@ -2314,6 +2409,44 @@ const toggleEditTagSelection = (id: string) => {
                 </div>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Start date</Label>
+                <div className="mt-1">
+                  <TaskDatePicker
+                    label="Start date"
+                    value={parsedEditStartDate}
+                    defaultMonth={parsedEditStartDate ?? parsedEditDueDate ?? undefined}
+                    maxDate={parsedEditDueDate ?? undefined}
+                    onChange={(date) => {
+                      if (date && parsedEditDueDate && date.getTime() > parsedEditDueDate.getTime()) {
+                        toast.error("Start date cannot be after due date");
+                        return;
+                      }
+                      setEditTaskStartDate(date ? format(date, "yyyy-MM-dd") : "");
+                    }}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label>Due date</Label>
+                <div className="mt-1">
+                  <TaskDatePicker
+                    label="Due date"
+                    value={parsedEditDueDate}
+                    defaultMonth={parsedEditDueDate ?? parsedEditStartDate ?? undefined}
+                    minDate={parsedEditStartDate ?? undefined}
+                    onChange={(date) => {
+                      if (date && parsedEditStartDate && date.getTime() < parsedEditStartDate.getTime()) {
+                        toast.error("Due date cannot be before start date");
+                        return;
+                      }
+                      setEditTaskDueDate(date ? format(date, "yyyy-MM-dd") : "");
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -2529,6 +2662,44 @@ const toggleEditTagSelection = (id: string) => {
                               Clear
                             </Button>
                           )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label>Start date</Label>
+                          <div className="mt-1">
+                            <TaskDatePicker
+                              label="Start date"
+                              value={parsedNewStartDate}
+                              defaultMonth={parsedNewStartDate ?? parsedNewDueDate ?? undefined}
+                              maxDate={parsedNewDueDate ?? undefined}
+                              onChange={(date) => {
+                                if (date && parsedNewDueDate && date.getTime() > parsedNewDueDate.getTime()) {
+                                  toast.error("Start date cannot be after due date");
+                                  return;
+                                }
+                                setNewTaskStartDate(date ? format(date, "yyyy-MM-dd") : "");
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label>Due date</Label>
+                          <div className="mt-1">
+                            <TaskDatePicker
+                              label="Due date"
+                              value={parsedNewDueDate}
+                              defaultMonth={parsedNewDueDate ?? parsedNewStartDate ?? undefined}
+                              minDate={parsedNewStartDate ?? undefined}
+                              onChange={(date) => {
+                                if (date && parsedNewStartDate && date.getTime() < parsedNewStartDate.getTime()) {
+                                  toast.error("Due date cannot be before start date");
+                                  return;
+                                }
+                                setNewTaskDueDate(date ? format(date, "yyyy-MM-dd") : "");
+                              }}
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2882,6 +3053,8 @@ const toggleEditTagSelection = (id: string) => {
                     <span className="text-center">Priority</span>
                     <span className="text-center">Tags</span>
                     <span>Assignee</span>
+                    <span className="text-center">Start date</span>
+                    <span className="text-center">Due date</span>
                     <span className="justify-self-end pr-2 text-right">
                       Actions
                     </span>
@@ -2959,6 +3132,8 @@ const toggleEditTagSelection = (id: string) => {
                               onStatusChange={handleUpdateTaskStatus}
                               onDelete={handleDeleteTask}
                               onAssigneeChange={handleUpdateTaskAssignee}
+                              onStartDateChange={handleUpdateTaskStartDate}
+                              onDueDateChange={handleUpdateTaskDueDate}
                               onPriorityChange={handleUpdateTaskPriority}
                               onEditTask={beginEditTask}
                               tagFilters={filterTagIds}
@@ -3108,6 +3283,36 @@ const toggleEditTagSelection = (id: string) => {
                                 }
                                 triggerClassName="max-w-[200px] sm:max-w-[240px]"
                                 align="end"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 sm:gap-2">
+                            <Label className="text-[10px] sm:text-[11px] text-muted-foreground shrink-0">
+                              Start
+                            </Label>
+                            <div className="flex-1">
+                              <DateCell
+                                label="Start date"
+                                value={task.startDate}
+                                pairedDate={task.dueDate}
+                                pairedType="due"
+                                onChange={(v) => handleUpdateTaskStartDate(task.id, v)}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 sm:gap-2">
+                            <Label className="text-[10px] sm:text-[11px] text-muted-foreground shrink-0">
+                              Due
+                            </Label>
+                            <div className="flex-1">
+                              <DateCell
+                                label="Due date"
+                                value={task.dueDate}
+                                pairedDate={task.startDate}
+                                pairedType="start"
+                                onChange={(v) => handleUpdateTaskDueDate(task.id, v)}
                               />
                             </div>
                           </div>
@@ -3611,6 +3816,37 @@ function getInitials(name?: string) {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
+function parseDateInput(dateStr?: string | null) {
+  if (!dateStr) return null;
+  const trimmed = dateStr.trim();
+  if (!trimmed) return null;
+
+  try {
+    const parsed = parse(trimmed, "yyyy-MM-dd", new Date());
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  } catch {}
+
+  try {
+    const parsed = parseISO(trimmed);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  } catch {}
+
+  const fallback = new Date(trimmed);
+  return Number.isNaN(fallback.getTime()) ? null : fallback;
+}
+
+function formatDateValue(dateStr: string | null | undefined) {
+  const parsed = parseDateInput(dateStr);
+  if (!parsed) return "";
+  return format(parsed, "yyyy-MM-dd");
+}
+
+function formatDateHuman(dateStr: string | null | undefined) {
+  const parsed = parseDateInput(dateStr);
+  if (!parsed) return "—";
+  return format(parsed, "dd MMM yyyy");
+}
+
 
 type RowProps = {
   rowIndex: number;
@@ -3621,10 +3857,61 @@ type RowProps = {
   onStatusChange: (taskId: string, statusId: string) => void;
   onDelete: (taskId: string) => void;
   onAssigneeChange: (taskId: string, assigneeIds: string[]) => void;
+  onStartDateChange: (taskId: string, startDate: string) => void;
+  onDueDateChange: (taskId: string, dueDate: string) => void;
   onPriorityChange: (taskId: string, priority: Task["priority"]) => void;
   onEditTask: (task: Task) => void;
   tagFilters: string[];
   onTagFilter: (tagId: string) => void;
+};
+
+const DateCell = ({
+  label,
+  value,
+  pairedDate,
+  pairedType,
+  onChange,
+}: {
+  label: string;
+  value: string | null;
+  pairedDate?: string | null;
+  pairedType?: "start" | "due";
+  onChange: (val: string) => void;
+}) => {
+  const parsedValue = value ? parseDateInput(value) ?? null : null;
+  const parsedPair = pairedDate ? parseDateInput(pairedDate) ?? null : null;
+  const minDate = pairedType === "start" ? parsedPair : null;
+  const maxDate = pairedType === "due" ? parsedPair : null;
+  const defaultMonth = parsedValue ?? parsedPair ?? undefined;
+
+  const handleChange = (date: Date | null) => {
+    if (date && parsedPair) {
+      if (pairedType === "due" && date.getTime() > parsedPair.getTime()) {
+        toast.error("Start date cannot be after due date");
+        return;
+      }
+      if (pairedType === "start" && date.getTime() < parsedPair.getTime()) {
+        toast.error("Due date cannot be before start date");
+        return;
+      }
+    }
+    onChange(date ? format(date, "yyyy-MM-dd") : "");
+  };
+
+  return (
+    <TaskDatePicker
+      label={label}
+      placeholder="Set date"
+      value={parsedValue}
+      onChange={handleChange}
+      minDate={minDate ?? undefined}
+      maxDate={maxDate ?? undefined}
+      defaultMonth={defaultMonth}
+      align="start"
+      compact
+      triggerClassName="min-w-[136px]"
+    />
+  );
 };
 
 function SortableTaskRow({
@@ -3636,6 +3923,8 @@ function SortableTaskRow({
   onStatusChange,
   onDelete,
   onAssigneeChange,
+  onStartDateChange,
+  onDueDateChange,
   onPriorityChange,
   onEditTask,
   tagFilters,
@@ -3778,6 +4067,26 @@ function SortableTaskRow({
           onChange={(next) => onAssigneeChange(task.id, next)}
           single={assigneeMode === "single"}
           triggerClassName="max-w-[240px]"
+        />
+      </div>
+
+      <div className="flex justify-center min-w-0">
+        <DateCell
+          label="Start date"
+          value={task.startDate}
+          onChange={(v) => onStartDateChange(task.id, v)}
+          pairedDate={task.dueDate}
+          pairedType="due"
+        />
+      </div>
+
+      <div className="flex justify-center min-w-0">
+        <DateCell
+          label="Due date"
+          value={task.dueDate}
+          onChange={(v) => onDueDateChange(task.id, v)}
+          pairedDate={task.startDate}
+          pairedType="start"
         />
       </div>
 
