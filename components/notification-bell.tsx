@@ -48,8 +48,14 @@ export function NotificationBell() {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchNotifications, 15000);
+    // Listen for immediate refresh after task mutations
+    const handleRefresh = () => fetchNotifications();
+    window.addEventListener("notifications-refresh", handleRefresh);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("notifications-refresh", handleRefresh);
+    };
   }, [fetchNotifications]);
 
   useEffect(() => {

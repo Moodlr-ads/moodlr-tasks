@@ -1597,6 +1597,9 @@ const toggleEditTagSelection = (id: string) => {
     }
   };
 
+  const refreshNotifications = () =>
+    window.dispatchEvent(new Event("notifications-refresh"));
+
   // Create task
   const handleCreateTask = async () => {
     if (!newTaskTitle.trim() || !selectedBoard) return;
@@ -1638,6 +1641,7 @@ const toggleEditTagSelection = (id: string) => {
         setNewTaskStartDate("");
         setShowNewTask(false);
         toast.success("Task created");
+        refreshNotifications();
       }
     } catch {
       toast.error("Failed to create task");
@@ -1657,6 +1661,7 @@ const toggleEditTagSelection = (id: string) => {
         setTasks((prev) =>
           prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
         );
+        refreshNotifications();
       }
     } catch {
       toast.error("Failed to update task");
@@ -1670,6 +1675,7 @@ const toggleEditTagSelection = (id: string) => {
       if (res.ok) {
         setTasks((prev) => prev.filter((t) => t.id !== taskId));
         toast.success("Task deleted");
+        refreshNotifications();
       }
     } catch {
       toast.error("Failed to delete task");
@@ -1692,6 +1698,7 @@ const toggleEditTagSelection = (id: string) => {
           prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
         );
         toast.success("Assignees updated");
+        refreshNotifications();
       }
     } catch {
       toast.error("Failed to update assignees");
@@ -1725,6 +1732,7 @@ const toggleEditTagSelection = (id: string) => {
         setTasks((prev) =>
           prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
         );
+        refreshNotifications();
       }
     } catch {
       toast.error("Failed to update start date");
@@ -1752,6 +1760,7 @@ const toggleEditTagSelection = (id: string) => {
         setTasks((prev) =>
           prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
         );
+        refreshNotifications();
       }
     } catch {
       toast.error("Failed to update due date");
@@ -1806,6 +1815,7 @@ const toggleEditTagSelection = (id: string) => {
         setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
         setEditingTask(null);
         toast.success("Task updated");
+        refreshNotifications();
       } else {
         const data = await res.json().catch(() => null);
         toast.error(data?.error || "Failed to update task");
@@ -1829,6 +1839,7 @@ const toggleEditTagSelection = (id: string) => {
         setTasks((prev) =>
           prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
         );
+        refreshNotifications();
       }
     } catch {
       toast.error("Failed to update priority");
