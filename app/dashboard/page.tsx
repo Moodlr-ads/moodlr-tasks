@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
@@ -59,9 +58,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { format, parse, parseISO } from "date-fns";
 import {
-  Calendar,
   ChevronRight,
   GripVertical,
   LayoutDashboard,
@@ -570,8 +567,8 @@ const AssigneePicker = ({
 };
 
 const TASK_GRID =
-  "grid gap-x-3 gap-y-3 grid-cols-[minmax(260px,1.5fr)_150px_110px_220px_180px_140px_140px_60px] items-center";
-const TABLE_MIN_WIDTH = "min-w-[1250px] xl:min-w-[1350px]";
+  "grid gap-x-3 gap-y-3 grid-cols-[minmax(260px,1.5fr)_150px_110px_220px_180px_90px] items-center";
+const TABLE_MIN_WIDTH = "min-w-[1050px] xl:min-w-[1150px]";
 
 export default function DashboardPage() {
   const { status: sessionStatus } = useSession();
@@ -631,8 +628,6 @@ export default function DashboardPage() {
   const [newTaskStatusId, setNewTaskStatusId] = useState("");
   const [newTaskTagIds, setNewTaskTagIds] = useState<string[]>([]);
   const [newTaskAssigneeIds, setNewTaskAssigneeIds] = useState<string[]>([]);
-  const [newTaskDueDate, setNewTaskDueDate] = useState("");
-  const [newTaskStartDate, setNewTaskStartDate] = useState("");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editTaskTitle, setEditTaskTitle] = useState("");
   const [editTaskDesc, setEditTaskDesc] = useState("");
@@ -640,8 +635,6 @@ export default function DashboardPage() {
   const [editTaskPriority, setEditTaskPriority] = useState<Task["priority"]>("medium");
   const [editTaskTagIds, setEditTaskTagIds] = useState<string[]>([]);
   const [editTaskAssigneeIds, setEditTaskAssigneeIds] = useState<string[]>([]);
-  const [editTaskStartDate, setEditTaskStartDate] = useState("");
-  const [editTaskDueDate, setEditTaskDueDate] = useState("");
   const [newWorkspaceIcon, setNewWorkspaceIcon] = useState("📁");
   const [editWorkspaceIcon, setEditWorkspaceIcon] = useState("📁");
   const [newBoardIcon, setNewBoardIcon] = useState("📋");
@@ -651,10 +644,10 @@ export default function DashboardPage() {
   const [editHeadingValue, setEditHeadingValue] = useState(workspaceHeading);
   const [seedingExamples, setSeedingExamples] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
-  const [showTagManager, setShowTagManager] = useState(false);
-  const [deletedTags, setDeletedTags] = useState<Tag[]>([]);
-  const [tagManagerLoading, setTagManagerLoading] = useState(false);
-  const [tagActionLoading, setTagActionLoading] = useState(false);
+const [showTagManager, setShowTagManager] = useState(false);
+const [deletedTags, setDeletedTags] = useState<Tag[]>([]);
+const [tagManagerLoading, setTagManagerLoading] = useState(false);
+const [tagActionLoading, setTagActionLoading] = useState(false);
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -1603,14 +1596,6 @@ const toggleEditTagSelection = (id: string) => {
   // Create task
   const handleCreateTask = async () => {
     if (!newTaskTitle.trim() || !selectedBoard) return;
-    if (newTaskStartDate && newTaskDueDate) {
-      const start = parseDateInput(newTaskStartDate);
-      const due = parseDateInput(newTaskDueDate);
-      if (start && due && start.getTime() > due.getTime()) {
-        toast.error("Due date cannot be before start date");
-        return;
-      }
-    }
     try {
       const res = await fetch("/api/tasks", {
         method: "POST",
@@ -1623,8 +1608,6 @@ const toggleEditTagSelection = (id: string) => {
           statusId: newTaskStatusId || null,
           groupId: null,
           assigneeIds: newTaskAssigneeIds,
-          startDate: newTaskStartDate || null,
-          dueDate: newTaskDueDate || null,
           tagIds: newTaskTagIds.slice(0, TAG_LIMIT),
         }),
       });
@@ -1637,8 +1620,6 @@ const toggleEditTagSelection = (id: string) => {
         setNewTaskStatusId("");
         setNewTaskTagIds([]);
         setNewTaskAssigneeIds([]);
-        setNewTaskDueDate("");
-        setNewTaskStartDate("");
         setShowNewTask(false);
         toast.success("Task created");
         refreshNotifications();
@@ -1708,64 +1689,6 @@ const toggleEditTagSelection = (id: string) => {
   // Backward-compatible alias to match previous prop name
   const handleUpdateTaskAssignee = handleUpdateTaskAssignees;
 
-  const handleUpdateTaskStartDate = async (
-    taskId: string,
-    startDate: string,
-  ) => {
-    const existing = tasks.find((t) => t.id === taskId);
-    if (existing?.dueDate) {
-      const due = parseDateInput(existing.dueDate);
-      const start = parseDateInput(startDate);
-      if (start && due && start.getTime() > due.getTime()) {
-        toast.error("Start date cannot be after due date");
-        return;
-      }
-    }
-    try {
-      const res = await fetch(`/api/tasks/${taskId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ startDate: startDate || null }),
-      });
-      if (res.ok) {
-        const updated = normalizeTask(await res.json());
-        setTasks((prev) =>
-          prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
-        );
-        refreshNotifications();
-      }
-    } catch {
-      toast.error("Failed to update start date");
-    }
-  };
-
-  const handleUpdateTaskDueDate = async (taskId: string, dueDate: string) => {
-    const existing = tasks.find((t) => t.id === taskId);
-    if (existing?.startDate) {
-      const start = parseDateInput(existing.startDate);
-      const due = parseDateInput(dueDate);
-      if (start && due && due.getTime() < start.getTime()) {
-        toast.error("Due date cannot be before start date");
-        return;
-      }
-    }
-    try {
-      const res = await fetch(`/api/tasks/${taskId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dueDate: dueDate || null }),
-      });
-      if (res.ok) {
-        const updated = normalizeTask(await res.json());
-        setTasks((prev) =>
-          prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
-        );
-        refreshNotifications();
-      }
-    } catch {
-      toast.error("Failed to update due date");
-    }
-  };
 
   const beginEditTask = (task: Task) => {
     setEditingTask(task);
@@ -1777,8 +1700,6 @@ const toggleEditTagSelection = (id: string) => {
       uniq(task.tags?.map((t) => t.id).slice(0, TAG_LIMIT) || []),
     );
     setEditTaskAssigneeIds(getAssigneeIds(task));
-    setEditTaskStartDate(formatDateValue(task.startDate) || "");
-    setEditTaskDueDate(formatDateValue(task.dueDate) || "");
   };
 
   const handleSaveEditTask = async () => {
@@ -1786,14 +1707,6 @@ const toggleEditTagSelection = (id: string) => {
     if (!editTaskTitle.trim()) {
       toast.error("Title is required");
       return;
-    }
-    if (editTaskStartDate && editTaskDueDate) {
-      const start = parseDateInput(editTaskStartDate);
-      const due = parseDateInput(editTaskDueDate);
-      if (start && due && start.getTime() > due.getTime()) {
-        toast.error("Due date cannot be before start date");
-        return;
-      }
     }
     try {
       const res = await fetch(`/api/tasks/${editingTask.id}`, {
@@ -1806,8 +1719,6 @@ const toggleEditTagSelection = (id: string) => {
           priority: editTaskPriority,
           tagIds: editTaskTagIds.slice(0, TAG_LIMIT),
           assigneeIds: editTaskAssigneeIds,
-          startDate: editTaskStartDate || null,
-          dueDate: editTaskDueDate || null,
         }),
       });
       if (res.ok) {
@@ -2403,104 +2314,6 @@ const toggleEditTagSelection = (id: string) => {
                 </div>
               </div>
             </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Start date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="mt-1 w-full justify-start"
-                    >
-                      {editTaskStartDate
-                        ? formatDateHuman(editTaskStartDate)
-                        : "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  {/* @ts-ignore Radix type issue in .jsx wrapper */}
-                  <PopoverContentAny className="p-0 w-auto" align="center" side="bottom">
-                    <CalendarPicker
-                      className="p-2"
-                      classNames={{ day_today: "text-muted-foreground" }}
-                      mode="single"
-                      selected={
-                        editTaskStartDate
-                          ? parseDateInput(editTaskStartDate) ?? undefined
-                          : undefined
-                      }
-                      defaultMonth={
-                        parseDateInput(editTaskStartDate) ??
-                        parseDateInput(editTaskDueDate) ??
-                        undefined
-                      }
-                      onSelect={(date: Date | undefined) => {
-                        if (
-                          date &&
-                          editTaskDueDate &&
-                          parseDateInput(editTaskDueDate) &&
-                          date.getTime() >
-                            (parseDateInput(editTaskDueDate)?.getTime() ?? 0)
-                        ) {
-                          toast.error("Start date cannot be after due date");
-                          return;
-                        }
-                        setEditTaskStartDate(
-                          date ? format(date, "yyyy-MM-dd") : "",
-                        );
-                      }}
-                    />
-                  </PopoverContentAny>
-                </Popover>
-              </div>
-              <div>
-                <Label>Due date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="mt-1 w-full justify-start"
-                    >
-                      {editTaskDueDate
-                        ? formatDateHuman(editTaskDueDate)
-                        : "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  {/* @ts-ignore Radix type issue in .jsx wrapper */}
-                  <PopoverContentAny className="p-0 w-auto" align="center" side="bottom">
-                    <CalendarPicker
-                      className="p-2"
-                      classNames={{ day_today: "text-muted-foreground" }}
-                      mode="single"
-                      selected={
-                        editTaskDueDate
-                          ? parseDateInput(editTaskDueDate) ?? undefined
-                          : undefined
-                      }
-                      defaultMonth={
-                        parseDateInput(editTaskDueDate) ??
-                        parseDateInput(editTaskStartDate) ??
-                        undefined
-                      }
-                      onSelect={(date: Date | undefined) => {
-                        if (
-                          date &&
-                          editTaskStartDate &&
-                          parseDateInput(editTaskStartDate) &&
-                          date.getTime() <
-                            (parseDateInput(editTaskStartDate)?.getTime() ?? 0)
-                        ) {
-                          toast.error("Due date cannot be before start date");
-                          return;
-                        }
-                        setEditTaskDueDate(
-                          date ? format(date, "yyyy-MM-dd") : "",
-                        );
-                      }}
-                    />
-                  </PopoverContentAny>
-                </Popover>
-              </div>
-            </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -2678,7 +2491,7 @@ const toggleEditTagSelection = (id: string) => {
                 onCreate={handleCreateTag}
                 onTrash={(id) => handleSoftDeleteTag(id)}
               />
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3">
                       <div>
                         <Label>Assignees (optional)</Label>
                         <div className="mt-2 flex flex-wrap gap-2">
@@ -2716,104 +2529,6 @@ const toggleEditTagSelection = (id: string) => {
                               Clear
                             </Button>
                           )}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label>Start date</Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className="mt-1 w-full justify-start"
-                              >
-                                {newTaskStartDate
-                                  ? formatDateHuman(newTaskStartDate)
-                                  : "Pick a date"}
-                              </Button>
-                            </PopoverTrigger>
-                            {/* @ts-ignore Radix type issue in .jsx wrapper */}
-                            <PopoverContentAny className="p-0 w-auto" align="center" side="bottom">
-                              <CalendarPicker
-                                className="p-2"
-                                classNames={{}}
-                                mode="single"
-                                selected={
-                                  newTaskStartDate
-                                    ? parseDateInput(newTaskStartDate) ?? undefined
-                                    : undefined
-                                }
-                                defaultMonth={
-                                  parseDateInput(newTaskStartDate) ??
-                                  parseDateInput(newTaskDueDate) ??
-                                  undefined
-                                }
-                    onSelect={(date: Date | undefined) => {
-                      if (
-                        date &&
-                        newTaskDueDate &&
-                        parseDateInput(newTaskDueDate) &&
-                        date.getTime() >
-                          (parseDateInput(newTaskDueDate)?.getTime() ?? 0)
-                      ) {
-                        toast.error("Start date cannot be after due date");
-                        return;
-                      }
-                      setNewTaskStartDate(
-                        date ? format(date, "yyyy-MM-dd") : "",
-                      );
-                    }}
-                  />
-                </PopoverContentAny>
-              </Popover>
-            </div>
-            <div>
-                          <Label>Due date</Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className="mt-1 w-full justify-start"
-                              >
-                                {newTaskDueDate
-                                  ? formatDateHuman(newTaskDueDate)
-                                  : "Pick a date"}
-                              </Button>
-                            </PopoverTrigger>
-                            {/* @ts-ignore Radix type issue in .jsx wrapper */}
-                            <PopoverContentAny className="p-0 w-auto" align="center" side="bottom">
-                              <CalendarPicker
-                                className="p-2"
-                                classNames={{}}
-                                mode="single"
-                                selected={
-                                  newTaskDueDate
-                                    ? parseDateInput(newTaskDueDate) ?? undefined
-                                    : undefined
-                                }
-                                defaultMonth={
-                                  parseDateInput(newTaskDueDate) ??
-                                  parseDateInput(newTaskStartDate) ??
-                                  undefined
-                                }
-                    onSelect={(date: Date | undefined) => {
-                      if (
-                        date &&
-                        newTaskStartDate &&
-                        parseDateInput(newTaskStartDate) &&
-                        date.getTime() <
-                          (parseDateInput(newTaskStartDate)?.getTime() ?? 0)
-                      ) {
-                        toast.error("Due date cannot be before start date");
-                        return;
-                      }
-                      setNewTaskDueDate(
-                        date ? format(date, "yyyy-MM-dd") : "",
-                      );
-                    }}
-                  />
-                </PopoverContentAny>
-              </Popover>
                         </div>
                       </div>
                     </div>
@@ -3167,8 +2882,6 @@ const toggleEditTagSelection = (id: string) => {
                     <span className="text-center">Priority</span>
                     <span className="text-center">Tags</span>
                     <span>Assignee</span>
-                    <span>Start date</span>
-                    <span>Due date</span>
                     <span className="justify-self-end pr-2 text-right">
                       Actions
                     </span>
@@ -3246,8 +2959,6 @@ const toggleEditTagSelection = (id: string) => {
                               onStatusChange={handleUpdateTaskStatus}
                               onDelete={handleDeleteTask}
                               onAssigneeChange={handleUpdateTaskAssignee}
-                              onStartDateChange={handleUpdateTaskStartDate}
-                              onDueDateChange={handleUpdateTaskDueDate}
                               onPriorityChange={handleUpdateTaskPriority}
                               onEditTask={beginEditTask}
                               tagFilters={filterTagIds}
@@ -3349,18 +3060,18 @@ const toggleEditTagSelection = (id: string) => {
                           </div>
 
                           <div className="flex items-center gap-1.5 sm:gap-2 col-span-2 sm:col-span-1">
-                          <Label className="text-[10px] sm:text-[11px] text-muted-foreground shrink-0">
-                            Tags
-                          </Label>
-                          <div className="flex flex-wrap gap-1">
-                            {task.tags && task.tags.length > 0 ? (
-                              <>
-                                {task.tags.slice(0, 4).map((tag) => {
-                                  const active = filterTagIds.includes(tag.id);
-                                  return (
-                                    <button
-                                      key={tag.id}
-                                      type="button"
+                            <Label className="text-[10px] sm:text-[11px] text-muted-foreground shrink-0">
+                              Tags
+                            </Label>
+                            <div className="flex flex-wrap gap-1">
+                              {task.tags && task.tags.length > 0 ? (
+                                <>
+                                  {task.tags.slice(0, 4).map((tag) => {
+                                    const active = filterTagIds.includes(tag.id);
+                                    return (
+                                      <button
+                                        key={tag.id}
+                                        type="button"
                                         onClick={() => toggleTagFilter(tag.id)}
                                         className={cn(
                                           "px-2 py-0.5 rounded-full border text-xs",
@@ -3368,20 +3079,18 @@ const toggleEditTagSelection = (id: string) => {
                                             ? "bg-indigo-50 border-indigo-200 text-indigo-700"
                                             : "bg-muted/50 border-border text-foreground",
                                         )}
-                                    >
-                                      {tag.name}
-                                    </button>
-                                  );
-                                })}
-                                <HiddenTagsPopover
-                                  hidden={task.tags.slice(4)}
-                                  onToggle={toggleTagFilter}
-                                />
-                              </>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">
-                                  -
-                                </span>
+                                      >
+                                        {tag.name}
+                                      </button>
+                                    );
+                                  })}
+                                  <HiddenTagsPopover
+                                    hidden={task.tags.slice(4)}
+                                    onToggle={toggleTagFilter}
+                                  />
+                                </>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">-</span>
                               )}
                             </div>
                           </div>
@@ -3402,36 +3111,6 @@ const toggleEditTagSelection = (id: string) => {
                               />
                             </div>
                           </div>
-
-                          <div className="flex items-center gap-1.5 sm:gap-2">
-                            <Label className="text-[10px] sm:text-[11px] text-muted-foreground shrink-0">
-                              Start
-                            </Label>
-                            <div className="w-full max-w-[140px] sm:max-w-[180px]">
-                              <DateCell
-                                label="Start"
-                                value={task.startDate}
-                                onChange={(v) =>
-                                  handleUpdateTaskStartDate(task.id, v)
-                                }
-                              />
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 sm:gap-2">
-                            <Label className="text-[10px] sm:text-[11px] text-muted-foreground shrink-0">
-                              Due
-                            </Label>
-                            <div className="w-full max-w-[140px] sm:max-w-[180px]">
-                              <DateCell
-                                label="Due"
-                                value={task.dueDate}
-                                onChange={(v) =>
-                                  handleUpdateTaskDueDate(task.id, v)
-                                }
-                              />
-                            </div>
-                          </div>
                         </div>
 
                         <div className="flex items-center justify-end">
@@ -3441,15 +3120,15 @@ const toggleEditTagSelection = (id: string) => {
                                 <MoreHorizontal className="h-4 w-4" />
                               </button>
                             </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                beginEditTask(task);
-                              }}
-                            >
-                              Edit task
-                            </DropdownMenuItem>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  beginEditTask(task);
+                                }}
+                              >
+                                Edit task
+                              </DropdownMenuItem>
                               <Separator className="my-1" />
                               {statuses.map((s) => (
                                 <DropdownMenuItem
@@ -3932,37 +3611,6 @@ function getInitials(name?: string) {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
-function parseDateInput(dateStr?: string | null) {
-  if (!dateStr) return null;
-  const trimmed = dateStr.trim();
-  if (!trimmed) return null;
-
-  try {
-    const parsed = parse(trimmed, "yyyy-MM-dd", new Date());
-    if (!Number.isNaN(parsed.getTime())) return parsed;
-  } catch {}
-
-  try {
-    const parsed = parseISO(trimmed);
-    if (!Number.isNaN(parsed.getTime())) return parsed;
-  } catch {}
-
-  const fallback = new Date(trimmed);
-  return Number.isNaN(fallback.getTime()) ? null : fallback;
-}
-
-function formatDateValue(dateStr: string | null | undefined) {
-  const parsed = parseDateInput(dateStr);
-  if (!parsed) return "";
-  return format(parsed, "yyyy-MM-dd");
-}
-
-function formatDateHuman(dateStr: string | null | undefined) {
-  const parsed = parseDateInput(dateStr);
-  if (!parsed) return "—";
-  return format(parsed, "dd MMM yyyy");
-}
-
 
 type RowProps = {
   rowIndex: number;
@@ -3973,90 +3621,10 @@ type RowProps = {
   onStatusChange: (taskId: string, statusId: string) => void;
   onDelete: (taskId: string) => void;
   onAssigneeChange: (taskId: string, assigneeIds: string[]) => void;
-  onStartDateChange: (taskId: string, startDate: string) => void;
-  onDueDateChange: (taskId: string, dueDate: string) => void;
   onPriorityChange: (taskId: string, priority: Task["priority"]) => void;
   onEditTask: (task: Task) => void;
   tagFilters: string[];
   onTagFilter: (tagId: string) => void;
-};
-
-const DateCell = ({
-  value,
-  onChange,
-  label,
-  pairedDate,
-  pairedType,
-}: {
-  value: string | null;
-  onChange: (val: string) => void;
-  label: string;
-  pairedDate?: string | null;
-  pairedType?: "start" | "due";
-}) => {
-  const parsedValue = value ? parseDateInput(value) ?? undefined : undefined;
-  const parsedPair = pairedDate ? parseDateInput(pairedDate) ?? undefined : undefined;
-  const defaultMonth = parsedValue ?? parsedPair ?? undefined;
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-9 min-w-[116px] w-full px-3 bg-background border-border text-foreground text-xs flex items-center gap-2 justify-start"
-        >
-          <Calendar className="h-3.5 w-3.5" />
-          {value ? formatDateHuman(value) : "Set date"}
-        </Button>
-      </PopoverTrigger>
-      {/* @ts-ignore Radix jsx wrapper typing */}
-      <PopoverContentAny className="p-2 w-auto" align="center" side="bottom">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium">{label}</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs"
-            onClick={() => onChange("")}
-          >
-            Clear
-          </Button>
-        </div>
-        <CalendarPicker
-          className="rounded-md border"
-          classNames={{
-            day_today: "text-muted-foreground",
-          }}
-          mode="single"
-          selected={parsedValue}
-          defaultMonth={defaultMonth}
-          onSelect={(date: Date | undefined) => {
-            if (pairedType && pairedDate && date) {
-              const paired = parseDateInput(pairedDate);
-              if (paired) {
-                if (
-                  pairedType === "due" &&
-                  paired.getTime() < date.getTime()
-                ) {
-                  toast.error("Start date cannot be after due date");
-                  return;
-                }
-                if (
-                  pairedType === "start" &&
-                  paired.getTime() > date.getTime()
-                ) {
-                  toast.error("Due date cannot be before start date");
-                  return;
-                }
-              }
-            }
-            onChange(date ? format(date, "yyyy-MM-dd") : "");
-          }}
-        />
-      </PopoverContentAny>
-    </Popover>
-  );
 };
 
 function SortableTaskRow({
@@ -4068,8 +3636,6 @@ function SortableTaskRow({
   onStatusChange,
   onDelete,
   onAssigneeChange,
-  onStartDateChange,
-  onDueDateChange,
   onPriorityChange,
   onEditTask,
   tagFilters,
@@ -4212,25 +3778,6 @@ function SortableTaskRow({
           onChange={(next) => onAssigneeChange(task.id, next)}
           single={assigneeMode === "single"}
           triggerClassName="max-w-[240px]"
-        />
-      </div>
-
-      <div className="flex justify-center min-w-0">
-        <DateCell
-          label="Start"
-          value={task.startDate}
-          onChange={(v) => onStartDateChange(task.id, v)}
-          pairedDate={task.dueDate}
-          pairedType="due"
-        />
-      </div>
-      <div className="flex justify-center min-w-0">
-        <DateCell
-          label="Due"
-          value={task.dueDate}
-          onChange={(v) => onDueDateChange(task.id, v)}
-          pairedDate={task.startDate}
-          pairedType="start"
         />
       </div>
 
