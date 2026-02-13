@@ -16,31 +16,31 @@ const USERS = [
     name: "Marcelo",
     email: "marcelo@moodlr.com",
     password: "marcelorola221",
-    image: "/uploads/af707c63-7c02-4b33-a93d-26cbbd4b8184.png",
+    image: null,
   },
   {
     name: "Vitor",
     email: "vitor@moodlr.com",
     password: "vitorlopes223",
-    image: "/uploads/27bf47e9-42ae-4488-8030-19f757db48be.png",
+    image: null,
   },
   {
     name: "Kayan",
     email: "kayan@moodlr.com",
     password: "kayanmoodlr226",
-    image: "/uploads/d2f9e463-4971-490e-ada5-57f478056db2.png",
+    image: null,
   },
   {
     name: "Gilailson",
     email: "gilailson@moodlr.com",
     password: "gilacarneiro227",
-    image: "/uploads/0491e765-b12e-496b-b0a8-180e24419969.png",
+    image: null,
   },
   {
     name: "Andhy",
     email: "andhy@moodlr.com",
     password: "andhymoodlr229",
-    image: "/uploads/00a841c3-2de4-4ca5-8b32-615f2eef62d0.png",
+    image: null,
   },
 ];
 
