@@ -3,11 +3,19 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/db";
 
+const hasNotificationModel =
+  (prisma as any)?.notification &&
+  typeof (prisma as any).notification.findMany === "function";
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!hasNotificationModel) {
+      return NextResponse.json({ notifications: [], unreadCount: 0 });
     }
 
     const notifications = await prisma.notification.findMany({
@@ -36,6 +44,10 @@ export async function PATCH() {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!hasNotificationModel) {
+      return NextResponse.json({ success: true });
     }
 
     await prisma.notification.updateMany({
