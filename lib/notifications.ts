@@ -39,20 +39,24 @@ export async function createNotifications({
   });
 }
 
-export async function notifyAllUsers({
+export async function notifyTaskAssignees({
+  taskId,
   excludeUserId,
   type,
   title,
   message,
-  taskId,
 }: {
+  taskId: string;
   excludeUserId?: string;
   type: NotificationType;
   title: string;
   message: string;
-  taskId?: string;
 }) {
-  const users = await prisma.user.findMany({ select: { id: true } });
-  const userIds = users.map((u) => u.id);
+  const assignees = await prisma.taskAssignee.findMany({
+    where: { taskId },
+    select: { userId: true },
+  });
+  const userIds = assignees.map((a) => a.userId);
+  if (userIds.length === 0) return;
   await createNotifications({ userIds, excludeUserId, type, title, message, taskId });
 }

@@ -1,6 +1,6 @@
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/db";
-import { notifyAllUsers } from "@/lib/notifications";
+import { createNotifications } from "@/lib/notifications";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
@@ -134,13 +134,18 @@ export async function PUT(
       ? "Status alterado"
       : "Task atualizada";
 
-    notifyAllUsers({
-      excludeUserId: session.user.id,
-      type: notifType,
-      title: notifTitle,
-      message: task.title,
-      taskId: task.id,
-    }).catch(console.error);
+    // Notify only assignees of this task
+    const assigneeIds = task.assignees.map((a) => a.user.id);
+    if (assigneeIds.length > 0) {
+      createNotifications({
+        userIds: assigneeIds,
+        excludeUserId: session.user.id,
+        type: notifType,
+        title: notifTitle,
+        message: task.title,
+        taskId: task.id,
+      }).catch(console.error);
+    }
 
     return NextResponse.json(task);
   } catch (error) {
@@ -164,22 +169,29 @@ export async function DELETE(
 
     const { id } = await params;
 
-    // Get task title before deleting
+    // Get task info + assignees before deleting
     const task = await prisma.task.findUnique({
       where: { id },
-      select: { title: true },
+      select: {
+        title: true,
+        assignees: { select: { userId: true } },
+      },
     });
 
     await prisma.taskAssignee.deleteMany({ where: { taskId: id } });
     await prisma.task.delete({ where: { id } });
 
     if (task) {
-      notifyAllUsers({
-        excludeUserId: session.user.id,
-        type: "task_deleted",
-        title: "Task removida",
-        message: task.title,
-      }).catch(console.error);
+      const assigneeIds = task.assignees.map((a) => a.userId);
+      if (assigneeIds.length > 0) {
+        createNotifications({
+          userIds: assigneeIds,
+          excludeUserId: session.user.id,
+          type: "task_deleted",
+          title: "Task removida",
+          message: task.title,
+        }).catch(console.error);
+      }
     }
 
     return NextResponse.json({ message: "Task deleted" });
