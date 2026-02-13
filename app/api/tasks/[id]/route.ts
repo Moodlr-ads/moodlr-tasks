@@ -134,12 +134,14 @@ export async function PUT(
       ? "Status alterado"
       : "Task atualizada";
 
-    // Notify only assignees of this task
-    const assigneeIds = task.assignees.map((a) => a.user.id);
+    // Collect all assignees (both single assigneeId and TaskAssignee table)
+    const allIds = new Set<string>();
+    if (task.assignee?.id) allIds.add(task.assignee.id);
+    task.assignees.forEach((a) => allIds.add(a.user.id));
+    const assigneeIds = Array.from(allIds);
     if (assigneeIds.length > 0) {
       createNotifications({
         userIds: assigneeIds,
-        excludeUserId: session.user.id,
         type: notifType,
         title: notifTitle,
         message: task.title,
@@ -174,6 +176,7 @@ export async function DELETE(
       where: { id },
       select: {
         title: true,
+        assigneeId: true,
         assignees: { select: { userId: true } },
       },
     });
@@ -182,11 +185,13 @@ export async function DELETE(
     await prisma.task.delete({ where: { id } });
 
     if (task) {
-      const assigneeIds = task.assignees.map((a) => a.userId);
+      const allIds = new Set<string>();
+      if (task.assigneeId) allIds.add(task.assigneeId);
+      task.assignees.forEach((a) => allIds.add(a.userId));
+      const assigneeIds = Array.from(allIds);
       if (assigneeIds.length > 0) {
         createNotifications({
           userIds: assigneeIds,
-          excludeUserId: session.user.id,
           type: "task_deleted",
           title: "Task removida",
           message: task.title,

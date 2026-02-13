@@ -258,7 +258,6 @@ export async function POST(req: Request) {
     if (sanitizedAssignees.length > 0) {
       createNotifications({
         userIds: sanitizedAssignees,
-        excludeUserId: session.user.id,
         type: "task_created",
         title: "Nova task criada",
         message: task.title,
