@@ -69,7 +69,7 @@ export function TaskDatePicker({
           size={compact ? "sm" : "default"}
           disabled={disabled}
           className={cn(
-            "w-full justify-start gap-2 text-left font-semibold bg-card border-border text-foreground shadow-sm",
+            "w-full justify-start gap-2 text-left font-semibold bg-slate-900/70 border border-slate-700 text-slate-50 shadow-lg backdrop-blur",
             compact ? "h-9 px-3 text-xs" : "h-10 px-3 text-sm",
             !normalizedValue && "text-muted-foreground",
             triggerClassName,
@@ -84,7 +84,7 @@ export function TaskDatePicker({
         align={align}
         side={side}
         className={cn(
-          "w-auto min-w-[320px] rounded-2xl border border-border/70 bg-background/95 p-4 text-foreground shadow-2xl backdrop-blur",
+          "w-auto min-w-[340px] max-w-[380px] rounded-2xl border border-white/10 bg-slate-950/95 p-4 text-foreground shadow-[0_20px_50px_-12px_rgba(0,0,0,0.55)] backdrop-blur-lg",
           contentClassName,
         )}
       >
@@ -113,7 +113,7 @@ export function TaskDatePicker({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border/70 bg-card/90 p-3 shadow-xl">
+        <div className="rounded-2xl border border-white/5 bg-slate-900/70 p-3 shadow-inner">
           <Calendar
             mode="single"
             selected={normalizedValue ?? undefined}
