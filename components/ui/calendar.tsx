@@ -24,6 +24,23 @@ function Calendar({
         className,
       )}
       weekStartsOn={resolvedWeekStart}
+      styles={{
+        head_row: {
+          display: "grid",
+          gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+          columnGap: "6px",
+          paddingInline: "8px",
+        },
+        row: {
+          display: "grid",
+          gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+          columnGap: "6px",
+          paddingInline: "8px",
+        },
+        cell: {
+          padding: 0,
+        },
+      }}
       classNames={{
         root: "w-full",
         months: "flex flex-col gap-3",
@@ -56,6 +73,13 @@ function Calendar({
           "aria-selected:bg-primary/20 aria-selected:text-foreground",
         day_hidden: "invisible",
         ...classNames,
+      }}
+      components={{
+        Chevron: ({ orientation = "right", className, ...iconProps }) => {
+          const Icon =
+            orientation === "left" || orientation === "up" ? ChevronLeft : ChevronRight;
+          return <Icon className={cn("h-4 w-4", className)} {...iconProps} />;
+        },
       }}
       {...props}
     />
