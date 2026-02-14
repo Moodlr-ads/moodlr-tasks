@@ -193,63 +193,6 @@
 }
 
 @layer components {
-  /* Estilo consistente do calendário (react-day-picker) em toda a UI */
-  .rdp {
-    @apply w-full max-w-[340px] text-foreground;
-  }
-  .rdp-months {
-    @apply flex flex-col gap-4;
-  }
-  .rdp-month {
-    @apply space-y-3;
-  }
-  .rdp-caption {
-    @apply flex items-center justify-between px-2 pt-1;
-  }
-  .rdp-caption_label {
-    @apply text-sm font-semibold;
-  }
-  .rdp-nav {
-    @apply flex items-center gap-2;
-  }
-  .rdp-nav_button {
-    @apply inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground;
-  }
-  .rdp-nav_button_previous,
-  .rdp-nav_button_next {
-    @apply relative;
-  }
-  .rdp-table {
-    @apply w-full border-collapse;
-  }
-  .rdp-head_row,
-  .rdp-row {
-    @apply grid grid-cols-7 gap-1 px-1;
-  }
-  .rdp-head_cell {
-    @apply text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground;
-  }
-  .rdp-cell {
-    @apply p-0;
-  }
-  .rdp-day {
-    @apply h-10 w-full rounded-md p-0 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground;
-  }
-  .rdp-day_selected {
-    @apply bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground;
-  }
-  .rdp-day_today {
-    @apply border border-primary/60 text-foreground;
-  }
-  .rdp-day_outside {
-    @apply text-muted-foreground opacity-50;
-  }
-  .rdp-day_disabled {
-    @apply text-muted-foreground opacity-40;
-  }
-  .rdp-day_range_middle {
-    @apply bg-accent text-accent-foreground;
-  }
 }
 @keyframes progress {
   0% {

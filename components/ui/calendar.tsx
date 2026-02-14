@@ -27,7 +27,7 @@ function Calendar({
       classNames={{
         root: "w-full",
         months: "flex flex-col gap-3",
-        month: "space-y-2 px-2 pb-2",
+        month: "space-y-2 px-3 pb-3",
         caption: "flex items-center justify-between px-1 pt-2",
         caption_label: "text-sm font-semibold tracking-tight text-slate-100",
         nav: "flex items-center gap-1.5",
@@ -37,11 +37,11 @@ function Calendar({
         ),
         nav_button_previous: "",
         nav_button_next: "",
-        table: "w-full border-collapse",
-        head_row: "grid grid-cols-7 gap-1 px-0.5",
+        table: "w-full border-collapse text-center",
+        head_row: "",
         head_cell:
-          "text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400",
-        row: "grid grid-cols-7 gap-1 px-0.5",
+          "text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400 pb-1",
+        row: "",
         cell: "relative p-0",
         day: cn(
           buttonVariants({ variant: "ghost" }),
