@@ -113,16 +113,14 @@ export function TaskDatePicker({
           </div>
         </div>
 
-        <div className="rounded-xl border border-border/60 bg-card/70 p-2 shadow-inner">
-          <Calendar
-            mode="single"
-            selected={normalizedValue ?? undefined}
-            defaultMonth={month}
-            onSelect={(date) => handleSelect(date ?? null)}
-            disabled={disabledDays.length ? disabledDays : undefined}
-            weekStartsOn={1}
-          />
-        </div>
+        <Calendar
+          mode="single"
+          selected={normalizedValue ?? undefined}
+          defaultMonth={month}
+          onSelect={(date) => handleSelect(date ?? null)}
+          disabled={disabledDays.length ? disabledDays : undefined}
+          weekStartsOn={1}
+        />
       </PopoverContent>
     </Popover>
   );

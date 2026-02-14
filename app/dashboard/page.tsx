@@ -1610,7 +1610,7 @@ const toggleEditTagSelection = (id: string) => {
       const start = parseDateInput(newTaskStartDate);
       const due = parseDateInput(newTaskDueDate);
       if (start && due && start.getTime() > due.getTime()) {
-        toast.error("Start date cannot be after due date");
+        toast.error("Data de inicio nao pode ser depois da data final");
         return;
       }
     }
@@ -1720,7 +1720,7 @@ const toggleEditTagSelection = (id: string) => {
       const due = parseDateInput(existing.dueDate);
       const start = parseDateInput(startDate);
       if (start && due && start.getTime() > due.getTime()) {
-        toast.error("Start date cannot be after due date");
+        toast.error("Data de inicio nao pode ser depois da data final");
         return;
       }
     }
@@ -1739,7 +1739,7 @@ const toggleEditTagSelection = (id: string) => {
         refreshNotifications();
       }
     } catch {
-      toast.error("Failed to update start date");
+      toast.error("Falha ao atualizar data de inicio");
     }
   };
 
@@ -1749,7 +1749,7 @@ const toggleEditTagSelection = (id: string) => {
       const start = parseDateInput(existing.startDate);
       const due = parseDateInput(dueDate);
       if (start && due && due.getTime() < start.getTime()) {
-        toast.error("Due date cannot be before start date");
+        toast.error("Data final nao pode ser antes da data de inicio");
         return;
       }
     }
@@ -1768,7 +1768,7 @@ const toggleEditTagSelection = (id: string) => {
         refreshNotifications();
       }
     } catch {
-      toast.error("Failed to update due date");
+      toast.error("Falha ao atualizar data final");
     }
   };
 
@@ -1797,7 +1797,7 @@ const toggleEditTagSelection = (id: string) => {
       const start = parseDateInput(editTaskStartDate);
       const due = parseDateInput(editTaskDueDate);
       if (start && due && start.getTime() > due.getTime()) {
-        toast.error("Start date cannot be after due date");
+        toast.error("Data de inicio nao pode ser depois da data final");
         return;
       }
     }
@@ -2411,16 +2411,16 @@ const toggleEditTagSelection = (id: string) => {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Start date</Label>
+                <Label>Data de inicio</Label>
                 <div className="mt-1">
                   <TaskDatePicker
-                    label="Start date"
+                    label="Data de inicio"
                     value={parsedEditStartDate}
                     defaultMonth={parsedEditStartDate ?? parsedEditDueDate ?? undefined}
                     maxDate={parsedEditDueDate ?? undefined}
                     onChange={(date) => {
                       if (date && parsedEditDueDate && date.getTime() > parsedEditDueDate.getTime()) {
-                        toast.error("Start date cannot be after due date");
+                        toast.error("Data de inicio nao pode ser depois da data final");
                         return;
                       }
                       setEditTaskStartDate(date ? format(date, "yyyy-MM-dd") : "");
@@ -2429,16 +2429,16 @@ const toggleEditTagSelection = (id: string) => {
                 </div>
               </div>
               <div>
-                <Label>Due date</Label>
+                <Label>Data final</Label>
                 <div className="mt-1">
                   <TaskDatePicker
-                    label="Due date"
+                    label="Data final"
                     value={parsedEditDueDate}
                     defaultMonth={parsedEditDueDate ?? parsedEditStartDate ?? undefined}
                     minDate={parsedEditStartDate ?? undefined}
                     onChange={(date) => {
                       if (date && parsedEditStartDate && date.getTime() < parsedEditStartDate.getTime()) {
-                        toast.error("Due date cannot be before start date");
+                        toast.error("Data final nao pode ser antes da data de inicio");
                         return;
                       }
                       setEditTaskDueDate(date ? format(date, "yyyy-MM-dd") : "");
@@ -2666,16 +2666,16 @@ const toggleEditTagSelection = (id: string) => {
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <Label>Start date</Label>
+                          <Label>Data de inicio</Label>
                           <div className="mt-1">
                             <TaskDatePicker
-                              label="Start date"
+                              label="Data de inicio"
                               value={parsedNewStartDate}
                               defaultMonth={parsedNewStartDate ?? parsedNewDueDate ?? undefined}
                               maxDate={parsedNewDueDate ?? undefined}
                               onChange={(date) => {
                                 if (date && parsedNewDueDate && date.getTime() > parsedNewDueDate.getTime()) {
-                                  toast.error("Start date cannot be after due date");
+                                  toast.error("Data de inicio nao pode ser depois da data final");
                                   return;
                                 }
                                 setNewTaskStartDate(date ? format(date, "yyyy-MM-dd") : "");
@@ -2684,16 +2684,16 @@ const toggleEditTagSelection = (id: string) => {
                           </div>
                         </div>
                         <div>
-                          <Label>Due date</Label>
+                          <Label>Data final</Label>
                           <div className="mt-1">
                             <TaskDatePicker
-                              label="Due date"
+                              label="Data final"
                               value={parsedNewDueDate}
                               defaultMonth={parsedNewDueDate ?? parsedNewStartDate ?? undefined}
                               minDate={parsedNewStartDate ?? undefined}
                               onChange={(date) => {
                                 if (date && parsedNewStartDate && date.getTime() < parsedNewStartDate.getTime()) {
-                                  toast.error("Due date cannot be before start date");
+                                  toast.error("Data final nao pode ser antes da data de inicio");
                                   return;
                                 }
                                 setNewTaskDueDate(date ? format(date, "yyyy-MM-dd") : "");
@@ -3053,8 +3053,8 @@ const toggleEditTagSelection = (id: string) => {
                     <span className="text-center">Priority</span>
                     <span className="text-center">Tags</span>
                     <span>Assignee</span>
-                    <span className="text-center">Start date</span>
-                    <span className="text-center">Due date</span>
+                    <span className="text-center">Data de inicio</span>
+                    <span className="text-center">Data final</span>
                     <span className="justify-self-end pr-2 text-right">
                       Actions
                     </span>
@@ -3293,7 +3293,7 @@ const toggleEditTagSelection = (id: string) => {
                             </Label>
                             <div className="flex-1">
                               <DateCell
-                                label="Start date"
+                                label="Data de inicio"
                                 value={task.startDate}
                                 pairedDate={task.dueDate}
                                 pairedType="due"
@@ -3308,7 +3308,7 @@ const toggleEditTagSelection = (id: string) => {
                             </Label>
                             <div className="flex-1">
                               <DateCell
-                                label="Due date"
+                                label="Data final"
                                 value={task.dueDate}
                                 pairedDate={task.startDate}
                                 pairedType="start"
@@ -3887,11 +3887,11 @@ const DateCell = ({
   const handleChange = (date: Date | null) => {
     if (date && parsedPair) {
       if (pairedType === "due" && date.getTime() > parsedPair.getTime()) {
-        toast.error("Start date cannot be after due date");
+        toast.error("Data de inicio nao pode ser depois da data final");
         return;
       }
       if (pairedType === "start" && date.getTime() < parsedPair.getTime()) {
-        toast.error("Due date cannot be before start date");
+        toast.error("Data final nao pode ser antes da data de inicio");
         return;
       }
     }
@@ -4072,7 +4072,7 @@ function SortableTaskRow({
 
       <div className="flex justify-center min-w-0">
         <DateCell
-          label="Start date"
+          label="Data de inicio"
           value={task.startDate}
           onChange={(v) => onStartDateChange(task.id, v)}
           pairedDate={task.dueDate}
@@ -4082,7 +4082,7 @@ function SortableTaskRow({
 
       <div className="flex justify-center min-w-0">
         <DateCell
-          label="Due date"
+          label="Data final"
           value={task.dueDate}
           onChange={(v) => onDueDateChange(task.id, v)}
           pairedDate={task.startDate}
@@ -4130,3 +4130,4 @@ function SortableTaskRow({
     </div>
   );
 }
+
