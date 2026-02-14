@@ -20,7 +20,7 @@ function Calendar({
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn(
-        "w-full min-w-[300px] max-w-[340px] rounded-xl border border-border bg-card p-3 text-foreground shadow-sm",
+        "w-full min-w-[300px] max-w-[360px] rounded-2xl border border-border/70 bg-card/95 p-4 text-foreground shadow-2xl",
         className,
       )}
       weekStartsOn={resolvedWeekStart}
@@ -28,32 +28,32 @@ function Calendar({
         root: "w-full",
         months: "flex flex-col gap-4",
         month: "space-y-3",
-        caption: "flex items-center justify-between px-2 pt-1",
-        caption_label: "text-sm font-semibold",
+        caption: "flex items-center justify-between px-3 pt-1",
+        caption_label: "text-base font-semibold tracking-tight",
         nav: "flex items-center gap-2",
         nav_button: cn(
           buttonVariants({ variant: "ghost", size: "icon" }),
-          "h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent",
+          "h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/60",
         ),
         nav_button_previous: "",
         nav_button_next: "",
         table: "w-full border-collapse space-y-1",
         head_row: "grid grid-cols-7 gap-1 px-1",
         head_cell:
-          "text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+          "text-center text-[12px] font-semibold uppercase tracking-wide text-muted-foreground",
         row: "grid grid-cols-7 gap-1 px-1",
         cell: "relative p-0",
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-10 w-full rounded-md p-0 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background aria-selected:opacity-100",
+          "h-10 w-full rounded-lg p-0 text-sm font-semibold text-foreground hover:bg-accent/70 hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background aria-selected:opacity-100 transition-all",
         ),
         day_selected:
-          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-        day_today: "border border-primary/60 text-foreground",
-        day_outside: "text-muted-foreground opacity-50",
-        day_disabled: "text-muted-foreground opacity-40",
+          "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+        day_today: "border border-primary/70 text-foreground bg-primary/5",
+        day_outside: "text-muted-foreground opacity-40",
+        day_disabled: "text-muted-foreground opacity-30",
         day_range_middle:
-          "aria-selected:bg-accent aria-selected:text-accent-foreground",
+          "aria-selected:bg-accent/70 aria-selected:text-accent-foreground",
         day_hidden: "invisible",
         ...classNames,
       }}
