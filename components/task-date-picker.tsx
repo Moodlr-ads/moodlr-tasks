@@ -98,7 +98,7 @@ export function TaskDatePicker({
               className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
               onClick={() => handleSelect(startOfDay(new Date()))}
             >
-              Hoje
+              Today
             </Button>
             <Button
               type="button"
@@ -108,7 +108,7 @@ export function TaskDatePicker({
               onClick={() => handleSelect(null)}
               disabled={!normalizedValue}
             >
-              Limpar
+              Clear
             </Button>
           </div>
         </div>

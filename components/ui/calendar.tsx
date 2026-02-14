@@ -1,7 +1,7 @@
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { DayPicker } from "react-day-picker"
-import { ptBR } from "date-fns/locale"
+import { enUS } from "date-fns/locale"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
@@ -11,13 +11,13 @@ type CalendarProps = React.ComponentProps<typeof DayPicker>
 function Calendar({
   className,
   classNames,
-  showOutsideDays = true,
+  showOutsideDays = false,
   weekStartsOn,
   locale,
   ...props
 }: CalendarProps) {
   const resolvedWeekStart = typeof weekStartsOn === "number" ? weekStartsOn : 1; // default Monday
-  const resolvedLocale = locale ?? ptBR;
+  const resolvedLocale = locale ?? enUS;
 
   return (
     <DayPicker
@@ -37,9 +37,9 @@ function Calendar({
         root: "w-full",
         months: "flex flex-col gap-3",
         month: "space-y-3 px-3 pb-3",
-        caption: "flex items-center justify-between px-2 pt-2",
-        caption_label: "text-sm font-semibold tracking-tight",
-        nav: "flex items-center gap-2",
+        caption: "flex items-center justify-between px-3 pt-2",
+        caption_label: "text-sm font-semibold tracking-tight uppercase",
+        nav: "flex items-center gap-2 pl-1",
         nav_button: cn(
           buttonVariants({ variant: "ghost", size: "icon" }),
           "h-8 w-8 rounded-lg border border-border/60 text-muted-foreground hover:text-foreground hover:bg-primary/10",
