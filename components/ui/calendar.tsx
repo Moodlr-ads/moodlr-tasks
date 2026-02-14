@@ -25,21 +25,9 @@ function Calendar({
       )}
       weekStartsOn={resolvedWeekStart}
       styles={{
-        head_row: {
-          display: "grid",
-          gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-          columnGap: "6px",
-          paddingInline: "8px",
-        },
-        row: {
-          display: "grid",
-          gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-          columnGap: "6px",
-          paddingInline: "8px",
-        },
-        cell: {
-          padding: 0,
-        },
+        weekdays: { display: "grid", gridTemplateColumns: "repeat(7, minmax(0,1fr))", gap: "6px", padding: "0 8px" },
+        week: { display: "grid", gridTemplateColumns: "repeat(7, minmax(0,1fr))", gap: "6px", padding: "0 8px" },
+        day: { padding: 0 },
       }}
       classNames={{
         root: "w-full",
@@ -54,12 +42,13 @@ function Calendar({
         ),
         nav_button_previous: "",
         nav_button_next: "",
-        table: "w-full border-collapse",
-        head_row:
+        month_grid: "w-full border-collapse",
+        weekdays:
           "grid grid-cols-7 gap-1 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground",
-        head_cell: "text-center",
-        row: "grid grid-cols-7 gap-1 px-2",
-        cell: "relative p-0",
+        weekday: "text-center",
+        weeks: "space-y-1",
+        week: "grid grid-cols-7 gap-1 px-2",
+        day_button: "w-full h-full",
         day: cn(
           buttonVariants({ variant: "ghost" }),
           "h-10 w-full rounded-lg p-0 text-sm font-semibold text-foreground hover:bg-primary/15 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-0 aria-selected:opacity-100 transition-all",
