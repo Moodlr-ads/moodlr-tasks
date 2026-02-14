@@ -69,7 +69,7 @@ export function TaskDatePicker({
           size={compact ? "sm" : "default"}
           disabled={disabled}
           className={cn(
-            "w-full justify-start gap-2 text-left font-semibold bg-slate-900/70 border border-slate-700 text-slate-50 shadow-lg backdrop-blur",
+            "w-full justify-start gap-2 text-left font-semibold border border-border/70 bg-card/80 text-foreground shadow-sm hover:border-primary/60 transition",
             compact ? "h-9 px-3 text-xs" : "h-10 px-3 text-sm",
             !normalizedValue && "text-muted-foreground",
             triggerClassName,
@@ -84,12 +84,12 @@ export function TaskDatePicker({
         align={align}
         side={side}
         className={cn(
-          "w-auto min-w-[340px] max-w-[380px] rounded-2xl border border-white/10 bg-slate-950/95 p-4 text-foreground shadow-[0_20px_50px_-12px_rgba(0,0,0,0.55)] backdrop-blur-lg",
+          "w-auto min-w-[340px] max-w-[380px] rounded-xl border border-border/70 bg-popover/95 p-3 text-foreground shadow-2xl backdrop-blur",
           contentClassName,
         )}
       >
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <span className="text-sm font-semibold">{label}</span>
+        <div className="mb-3 flex items-center justify-between gap-2 px-1">
+          <span className="text-sm font-semibold text-foreground">{label}</span>
           <div className="flex items-center gap-1">
             <Button
               type="button"
@@ -98,7 +98,7 @@ export function TaskDatePicker({
               className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
               onClick={() => handleSelect(startOfDay(new Date()))}
             >
-              Today
+              Hoje
             </Button>
             <Button
               type="button"
@@ -108,12 +108,12 @@ export function TaskDatePicker({
               onClick={() => handleSelect(null)}
               disabled={!normalizedValue}
             >
-              Clear
+              Limpar
             </Button>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/5 bg-slate-900/70 p-3 shadow-inner">
+        <div className="rounded-xl border border-border/60 bg-card/70 p-2 shadow-inner">
           <Calendar
             mode="single"
             selected={normalizedValue ?? undefined}

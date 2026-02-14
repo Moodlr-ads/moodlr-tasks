@@ -20,40 +20,40 @@ function Calendar({
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn(
-        "w-full min-w-[320px] max-w-[380px] rounded-2xl border border-border/60 bg-gradient-to-b from-slate-900/95 via-slate-900 to-slate-950 text-foreground shadow-2xl backdrop-blur",
+        "w-full min-w-[320px] max-w-[360px] rounded-xl border border-border/60 bg-popover/95 text-foreground shadow-2xl backdrop-blur",
         className,
       )}
       weekStartsOn={resolvedWeekStart}
       classNames={{
         root: "w-full",
         months: "flex flex-col gap-3",
-        month: "space-y-2 px-3 pb-3",
-        caption: "flex items-center justify-between px-1 pt-2",
-        caption_label: "text-sm font-semibold tracking-tight text-slate-100",
-        nav: "flex items-center gap-1.5",
+        month: "space-y-3 px-3 pb-3",
+        caption: "flex items-center justify-between px-2 pt-2",
+        caption_label: "text-sm font-semibold tracking-tight",
+        nav: "flex items-center gap-2",
         nav_button: cn(
           buttonVariants({ variant: "ghost", size: "icon" }),
-          "h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/70",
+          "h-8 w-8 rounded-lg border border-border/60 text-muted-foreground hover:text-foreground hover:bg-primary/10",
         ),
         nav_button_previous: "",
         nav_button_next: "",
-        table: "w-full border-collapse text-center",
-        head_row: "",
-        head_cell:
-          "text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400 pb-1",
-        row: "",
+        table: "w-full border-collapse",
+        head_row:
+          "grid grid-cols-7 gap-1 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground",
+        head_cell: "text-center",
+        row: "grid grid-cols-7 gap-1 px-2",
         cell: "relative p-0",
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-9 w-full rounded-lg p-0 text-sm font-semibold text-slate-100 hover:bg-accent/70 hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background aria-selected:opacity-100 transition-all",
+          "h-10 w-full rounded-lg p-0 text-sm font-semibold text-foreground hover:bg-primary/15 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-0 aria-selected:opacity-100 transition-all",
         ),
         day_selected:
-          "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-        day_today: "border border-primary/70 text-foreground bg-primary/5",
-        day_outside: "text-muted-foreground opacity-50",
-        day_disabled: "text-muted-foreground opacity-25",
+          "bg-primary text-primary-foreground shadow-md hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+        day_today: "border border-primary/70 text-primary bg-primary/10",
+        day_outside: "text-muted-foreground opacity-60",
+        day_disabled: "text-muted-foreground opacity-35",
         day_range_middle:
-          "aria-selected:bg-accent/70 aria-selected:text-accent-foreground",
+          "aria-selected:bg-primary/20 aria-selected:text-foreground",
         day_hidden: "invisible",
         ...classNames,
       }}
