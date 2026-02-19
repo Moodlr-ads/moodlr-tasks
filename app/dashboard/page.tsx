@@ -36,6 +36,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -64,6 +65,7 @@ import {
   ChevronRight,
   GripVertical,
   LayoutDashboard,
+  Menu,
   Loader2,
   LogOut,
   MoreHorizontal,
@@ -91,6 +93,7 @@ import type React from "react";
 // PopoverContent is defined in a JS file, so the TS types don't include children.
 // Alias with a loose typing to avoid friction in this client component.
 const PopoverContentAny = PopoverContent as unknown as React.ComponentType<any>;
+const SheetContentAny = SheetContent as unknown as React.ComponentType<any>;
 
 // Types
 interface Workspace {
@@ -604,7 +607,14 @@ export default function DashboardPage() {
   const [boardLoading, setBoardLoading] = useState(true);
   const [tasksReady, setTasksReady] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      setSidebarOpen(false);
+    }
+  }, []);
 
   // Dialog states
   const [showNewWorkspace, setShowNewWorkspace] = useState(false);
@@ -1941,171 +1951,162 @@ const toggleEditTagSelection = (id: string) => {
     );
   }
 
-  return (
-    <div className="h-screen flex bg-background text-foreground">
-      {/* Sidebar */}
-      <aside
-        className={`${
-          sidebarOpen ? "w-64" : "w-0 overflow-hidden"
-        } bg-card border-r border-border flex flex-col transition-all duration-200`}
-      >
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <div className="bg-slate-900 dark:bg-transparent p-2 dark:p-0 rounded-md flex items-center justify-center">
-              <Image
-                src="/moodlr-icon.png"
-                alt="Moodlr Tasks"
-                width={24}
-                height={24}
-                className="h-6 w-6"
-                priority
-              />
-            </div>
-            <span className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              Moodlr Tasks
-            </span>
+  const renderSidebar = () => (
+    <div className="flex h-full flex-col bg-card text-foreground">
+      <div className="p-4 border-b border-border">
+        <div className="flex items-center gap-2">
+          <div className="bg-slate-900 dark:bg-transparent p-2 dark:p-0 rounded-md flex items-center justify-center">
+            <Image
+              src="/moodlr-icon.png"
+              alt="Moodlr Tasks"
+              width={24}
+              height={24}
+              className="h-6 w-6"
+              priority
+            />
           </div>
+          <span className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            Moodlr Tasks
+          </span>
         </div>
+      </div>
 
-        <div className="flex-1 overflow-y-auto p-3">
-          <div className="flex items-center justify-between mb-2">
+      <div className="flex-1 overflow-y-auto p-3">
+        <div className="flex items-center justify-between mb-2">
+          <button
+            type="button"
+            onClick={() => {
+              setEditHeadingValue(workspaceHeading);
+              setEditHeadingOpen(true);
+            }}
+            className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1 hover:text-foreground"
+          >
+            {workspaceHeading}
+          </button>
+          <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => {
                 setEditHeadingValue(workspaceHeading);
                 setEditHeadingOpen(true);
               }}
-              className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1 hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground"
+              aria-label="Rename workspaces heading"
             >
-              {workspaceHeading}
+              âœŽ
             </button>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setEditHeadingValue(workspaceHeading);
-                  setEditHeadingOpen(true);
-                }}
-                className="text-muted-foreground hover:text-foreground"
-                aria-label="Rename workspaces heading"
-              >
-                ✎
-              </button>
-              <Dialog
-                open={showNewWorkspace}
-                onOpenChange={setShowNewWorkspace}
-              >
-                <DialogTrigger asChild>
-                  <button className="text-muted-foreground hover:text-foreground">
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>New Workspace</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 pt-2">
-                    <div>
-                      <Label>Name</Label>
-                      <Input
-                        value={newWorkspaceName}
-                        onChange={(e) => setNewWorkspaceName(e.target.value)}
-                        placeholder="My Workspace"
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label>Icon</Label>
-                      <Select
-                        value={newWorkspaceIcon}
-                        onValueChange={setNewWorkspaceIcon}
-                      >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {emojiOptions.map((emoji) => (
-                            <SelectItem key={emoji} value={emoji}>
-                              {emoji}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Description (optional)</Label>
-                      <Input
-                        value={newWorkspaceDesc}
-                        onChange={(e) => setNewWorkspaceDesc(e.target.value)}
-                        placeholder="What's this workspace for?"
-                        className="mt-1"
-                      />
-                    </div>
-                    <Button onClick={handleCreateWorkspace} className="w-full">
-                      Create Workspace
-                    </Button>
+            <Dialog open={showNewWorkspace} onOpenChange={setShowNewWorkspace}>
+              <DialogTrigger asChild>
+                <button className="text-muted-foreground hover:text-foreground">
+                  <Plus className="h-4 w-4" />
+                </button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>New Workspace</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-2">
+                  <div>
+                    <Label>Name</Label>
+                    <Input
+                      value={newWorkspaceName}
+                      onChange={(e) => setNewWorkspaceName(e.target.value)}
+                      placeholder="My Workspace"
+                      className="mt-1"
+                    />
                   </div>
-                </DialogContent>
-              </Dialog>
-            </div>
+                  <div>
+                    <Label>Icon</Label>
+                    <Select
+                      value={newWorkspaceIcon}
+                      onValueChange={setNewWorkspaceIcon}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {emojiOptions.map((emoji) => (
+                          <SelectItem key={emoji} value={emoji}>
+                            {emoji}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Description (optional)</Label>
+                    <Input
+                      value={newWorkspaceDesc}
+                      onChange={(e) => setNewWorkspaceDesc(e.target.value)}
+                      placeholder="What's this workspace for?"
+                      className="mt-1"
+                    />
+                  </div>
+                  <Button onClick={handleCreateWorkspace} className="w-full">
+                    Create Workspace
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
+        </div>
 
-          <Dialog open={editHeadingOpen} onOpenChange={setEditHeadingOpen}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Rename section</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3">
-                <div>
-                  <Label>Title</Label>
-                  <Input
-                    value={editHeadingValue}
-                    onChange={(e) => setEditHeadingValue(e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => {
-                      setEditHeadingOpen(false);
-                      setEditHeadingValue(workspaceHeading);
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    className="flex-1"
-                    onClick={() => {
-                      const next = editHeadingValue.trim();
-                      setWorkspaceHeading(next || "WORKSPACES");
-                      setEditHeadingOpen(false);
-                    }}
-                  >
-                    Save
-                  </Button>
-                </div>
+        <Dialog open={editHeadingOpen} onOpenChange={setEditHeadingOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Rename section</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <Label>Title</Label>
+                <Input
+                  value={editHeadingValue}
+                  onChange={(e) => setEditHeadingValue(e.target.value)}
+                  className="mt-1"
+                />
               </div>
-            </DialogContent>
-          </Dialog>
-
-          <div className="space-y-1">
-            {workspaces.length === 0 ? (
-              <div className="text-xs text-muted-foreground space-y-2 p-2">
-                <div>No workspaces yet.</div>
+              <div className="flex gap-2">
                 <Button
-                  size="sm"
                   variant="outline"
-                  className="w-full"
-                  disabled={seedingExamples}
-                  onClick={handleSeedExamples}
+                  className="flex-1"
+                  onClick={() => {
+                    setEditHeadingOpen(false);
+                    setEditHeadingValue(workspaceHeading);
+                  }}
                 >
-                  {seedingExamples ? "Loading..." : "Load example workspace"}
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={() => {
+                    const next = editHeadingValue.trim();
+                    setWorkspaceHeading(next || "WORKSPACES");
+                    setEditHeadingOpen(false);
+                  }}
+                >
+                  Save
                 </Button>
               </div>
-            ) : (
-              workspaces.map((ws) => (
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <div className="space-y-1">
+          {workspaces.length === 0 ? (
+            <div className="text-xs text-muted-foreground space-y-2 p-2">
+              <div>No workspaces yet.</div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full"
+                disabled={seedingExamples}
+                onClick={handleSeedExamples}
+              >
+                {seedingExamples ? "Loading..." : "Load example workspace"}
+              </Button>
+            </div>
+          ) : (
+            workspaces.map((ws) => (
               <div key={ws.id} className="group">
                 <div className="flex items-center gap-1">
                   <button
@@ -2159,57 +2160,58 @@ const toggleEditTagSelection = (id: string) => {
 
                 {/* Show boards under selected workspace */}
                 {selectedWorkspace?.id === ws.id && (
-                  <div className="ml-6 mt-1 space-y-0.5">
-                    {boards.map((board) => (
-                      <div key={board.id} className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedBoard(board);
-                          }}
-                          className={`flex-1 flex items-center gap-2 px-2 py-1 rounded text-sm transition-colors ${
+                  <div className="mt-1 pl-2 space-y-1">
+                    {boards
+                      .filter((b) => b.workspaceId === ws.id)
+                      .map((board) => (
+                        <div
+                          key={board.id}
+                          className={`group flex items-center gap-1 px-2 py-1.5 rounded text-sm transition-colors ${
                             selectedBoard?.id === board.id
-                              ? "bg-indigo-50 text-indigo-700 font-medium"
-                              : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                              ? "bg-slate-900 text-slate-100 font-medium"
+                              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                           }`}
                         >
-                          <span className="text-xs">{board.icon}</span>
-                          <span className="truncate">{board.name}</span>
-                        </button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
-                              onClick={(e) => e.stopPropagation()}
-                              className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-50"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingBoard(board);
-                                setEditBoardName(board.name);
-                                setEditBoardIcon(board.icon || "📋");
-                              }}
-                            >
-                              Rename
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-red-600"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPendingBoardDelete(board);
-                              }}
-                            >
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    ))}
+                          <button
+                            className="flex-1 flex items-center gap-2 text-left"
+                            onClick={() => {
+                              setSelectedBoard(board);
+                              setSelectedWorkspace(ws);
+                            }}
+                          >
+                            <span className="h-2 w-2 rounded-full bg-slate-400" />
+                            <span className="truncate">{board.name}</span>
+                          </button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-600 transition">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingBoard(board);
+                                  setEditBoardName(board.name);
+                                  setEditBoardIcon(board.icon);
+                                }}
+                              >
+                                Edit board
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-red-600"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPendingBoardDelete(board);
+                                }}
+                              >
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      ))}
                     <Dialog open={showNewBoard} onOpenChange={setShowNewBoard}>
                       <DialogTrigger asChild>
                         <button className="w-full flex items-center gap-2 px-2 py-1 rounded text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-50">
@@ -2262,21 +2264,31 @@ const toggleEditTagSelection = (id: string) => {
                 )}
               </div>
             )))}
-          </div>
         </div>
+      </div>
 
-        <div className="p-3 border-t border-border">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start text-muted-foreground hover:text-red-500"
-            onClick={handleLogout}
-            disabled={logoutLoading}
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            {logoutLoading ? "Signing out..." : "Log Out"}
-          </Button>
-        </div>
+      <div className="p-3 border-t border-border">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start text-muted-foreground hover:text-red-500"
+          onClick={handleLogout}
+          disabled={logoutLoading}
+        >
+          <LogOut className="h-4 w-4 mr-2" />
+          {logoutLoading ? "Signing out..." : "Log Out"}
+        </Button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="h-screen flex bg-background text-foreground">
+      {/* Sidebar */}
+            <aside
+        className={`hidden lg:flex ${sidebarOpen ? "w-64" : "w-0 overflow-hidden"} border-r border-border transition-all duration-200 bg-card`}
+      >
+        <div className="w-64 flex-shrink-0">{renderSidebar()}</div>
       </aside>
 
       {/* Edit Task Dialog */}
@@ -2467,12 +2479,28 @@ const toggleEditTagSelection = (id: string) => {
       <main className="flex-1 flex flex-col min-w-0 bg-background text-foreground">
         {/* Header */}
         <header className="h-12 sm:h-14 bg-card border-b border-border flex items-center px-2 sm:px-4 gap-1.5 sm:gap-3 text-foreground">
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-muted-foreground hover:text-foreground shrink-0"
-          >
-            <LayoutDashboard className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+              <SheetTrigger asChild>
+                <button className="lg:hidden rounded-md border border-border px-2 py-1.5 text-muted-foreground hover:text-foreground hover:border-foreground">
+                  <Menu className="h-5 w-5" />
+                </button>
+              </SheetTrigger>
+              <SheetContentAny
+                side="left"
+                className="p-0 w-[280px] sm:max-w-sm bg-card text-foreground border-border"
+              >
+                <div className="h-full overflow-y-auto">{renderSidebar()}</div>
+              </SheetContentAny>
+            </Sheet>
+
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="hidden lg:inline-flex text-muted-foreground hover:text-foreground shrink-0"
+            >
+              <LayoutDashboard className="h-5 w-5" />
+            </button>
+          </div>
 
           {selectedBoard ? (
             <>
@@ -4130,4 +4158,5 @@ function SortableTaskRow({
     </div>
   );
 }
+
 
