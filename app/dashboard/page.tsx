@@ -1990,10 +1990,10 @@ const toggleEditTagSelection = (id: string) => {
                 setEditHeadingValue(workspaceHeading);
                 setEditHeadingOpen(true);
               }}
-              className="text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted/40"
               aria-label="Rename workspaces heading"
             >
-              âœŽ
+              <Pencil className="h-4 w-4" />
             </button>
             <Dialog open={showNewWorkspace} onOpenChange={setShowNewWorkspace}>
               <DialogTrigger asChild>
@@ -4158,5 +4158,6 @@ function SortableTaskRow({
     </div>
   );
 }
+
 
 
