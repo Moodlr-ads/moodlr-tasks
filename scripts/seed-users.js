@@ -2,39 +2,41 @@
 // Run with: node scripts/seed-users.js
 
 const { PrismaClient } = require("@prisma/client");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 
 const prisma = new PrismaClient();
+
+const defaultPassword = process.env.MOODLR_DEFAULT_PASSWORD || null;
 
 const users = [
   {
     email: "marcelo@moodlr.com",
     name: "Marcelo",
-    password: "marcelorola221",
+    password: defaultPassword || "marcelorola221",
     image: null,
   },
   {
     email: "vitor@moodlr.com",
     name: "Vitor",
-    password: "vitorlopes223",
+    password: defaultPassword || "vitorlopes223",
     image: null,
   },
   {
     email: "kayan@moodlr.com",
     name: "Kayan",
-    password: "kayanmoodlr226",
+    password: defaultPassword || "kayanmoodlr226",
     image: null,
   },
   {
     email: "gilailson@moodlr.com",
     name: "Gilailson",
-    password: "gilacarneiro227",
+    password: defaultPassword || "gilacarneiro227",
     image: null,
   },
   {
     email: "andhy@moodlr.com",
     name: "Andhy",
-    password: "andhymoodlr229",
+    password: defaultPassword || "andhymoodlr229",
     image: null,
   },
 ];

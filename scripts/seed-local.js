@@ -7,39 +7,41 @@
  *   node scripts/seed-local.js --apply --reset  # Wipe the whole workspace before seeding
  */
 const { PrismaClient, Priority } = require("@prisma/client");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 
 const prisma = new PrismaClient();
+
+const defaultPassword = process.env.MOODLR_DEFAULT_PASSWORD || null;
 
 const USERS = [
   {
     name: "Marcelo",
     email: "marcelo@moodlr.com",
-    password: "marcelorola221",
+    password: defaultPassword || "marcelorola221",
     image: null,
   },
   {
     name: "Vitor",
     email: "vitor@moodlr.com",
-    password: "vitorlopes223",
+    password: defaultPassword || "vitorlopes223",
     image: null,
   },
   {
     name: "Kayan",
     email: "kayan@moodlr.com",
-    password: "kayanmoodlr226",
+    password: defaultPassword || "kayanmoodlr226",
     image: null,
   },
   {
     name: "Gilailson",
     email: "gilailson@moodlr.com",
-    password: "gilacarneiro227",
+    password: defaultPassword || "gilacarneiro227",
     image: null,
   },
   {
     name: "Andhy",
     email: "andhy@moodlr.com",
-    password: "andhymoodlr229",
+    password: defaultPassword || "andhymoodlr229",
     image: null,
   },
 ];
